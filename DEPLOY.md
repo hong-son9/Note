@@ -11,9 +11,14 @@ Worker hiện tại: **misty-grass-d263** → https://misty-grass-d263.hongson15
 ```
 push lên main
    └→ Cloudflare clone repo
-        └→ chạy ./build.sh   (dựng dist/ , sinh config.js từ biến môi trường)
-             └→ npx wrangler deploy   (đọc wrangler.jsonc, đẩy dist/ lên)
+        └→ npx wrangler deploy
+             └→ wrangler đọc wrangler.jsonc, thấy build.command
+                  └→ chạy ./build.sh  (dựng dist/, sinh config.js từ biến môi trường)
+                       └→ đẩy dist/ lên Worker
 ```
+
+Lệnh build nằm trong `wrangler.jsonc` chứ không phải ô "Build command" trên dashboard,
+nên không lo quên điền hay điền sai.
 
 `config.js` **không nằm trong git** vì chứa key Supabase. Trên Cloudflare nó được
 `build.sh` sinh ra lúc build từ hai biến môi trường. Dưới máy thì vẫn lấy từ file `config.js`
@@ -33,8 +38,11 @@ Cloudflare Dashboard → **Workers & Pages** → `misty-grass-d263` → **Settin
 | Ô | Điền |
 |---|---|
 | Root directory | `/` |
-| Build command | `./build.sh` |
+| Build command | **để trống** |
 | Deploy command | `npx wrangler deploy` |
+
+`build.sh` được gọi từ `wrangler.jsonc` (`build.command`), nên ô Build command không cần điền.
+Có điền cũng không sao, chỉ là build chạy hai lần.
 
 ### 3. Thêm biến môi trường cho build
 
