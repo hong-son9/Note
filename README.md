@@ -86,9 +86,11 @@ Dự án đang mở và note đang mở **của từng dự án** được ghi v
 
 - F5 hay mở lại trình duyệt → vào thẳng dự án và note lần trước, không về cái đầu tiên
 - Quay lại một dự án cũ → mở đúng note bạn xem lần trước ở dự án đó
+- Mở lại một note → cuộn về đúng đoạn bạn đang đọc, không về đầu trang
 
 Dữ liệu này nằm riêng theo tài khoản, và nếu dự án hay note đã bị xoá thì tự bỏ qua,
-quay về mục đầu tiên. Vị trí cuộn trong trang giấy chưa được nhớ.
+quay về mục đầu tiên. Mở note từ kết quả `Ctrl+K` thì nhảy tới chỗ khớp chứ không
+khôi phục vị trí cuộn cũ.
 
 ### Tìm kiếm toàn bộ
 
