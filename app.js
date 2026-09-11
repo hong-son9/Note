@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-09-11.2";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-09-11.3";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -721,11 +721,62 @@
     return box.innerHTML;
   }
 
+  const BLOCK_TAG = /^(DIV|P|UL|OL|LI|H1|H2|H3|BLOCKQUOTE|PRE|HR|BR)$/;
+
+  /* Trang giấy để white-space:pre-wrap (để giữ thụt lề khi gõ lệnh), nên mọi
+     ký tự xuống dòng và thụt lề nằm GIỮA CÁC THẺ của HTML nguồn đều bị hiển thị
+     thành khoảng trắng thật -> dán danh sách vào là thừa dòng, dấu chấm đầu dòng
+     rời khỏi chữ. Dọn sạch khoảng trắng vô nghĩa đó, trừ bên trong <pre>. */
+  function collapseWs(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const drop = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentElement && node.parentElement.closest("pre")) continue;
+      const v = node.nodeValue;
+      if (!v) continue;
+
+      // Chỉ đụng vào khoảng trắng do HTML nguồn xuống dòng sinh ra. Khoảng trắng
+      // không kèm ký tự xuống dòng là thụt lề thật của code (copy từ VS Code,
+      // terminal…) -> để nguyên, nếu không sẽ mất hết thụt lề.
+      if (!/[\r\n]/.test(v)) continue;
+
+      if (!v.trim()) {
+        const prev = node.previousSibling;
+        const next = node.nextSibling;
+        const prevBlock = !prev || (prev.nodeType === 1 && BLOCK_TAG.test(prev.tagName));
+        const nextBlock = !next || (next.nodeType === 1 && BLOCK_TAG.test(next.tagName));
+        if (prevBlock || nextBlock) drop.push(node);   // nằm giữa hai thẻ khối -> bỏ hẳn
+        else node.nodeValue = " ";                     // giữa chữ với chữ -> một dấu cách
+        continue;
+      }
+
+      let t = v.replace(/[\r\n]+[ \t]*/g, " ");       // xuống dòng + thụt lề -> một dấu cách
+      if (!node.previousSibling) t = t.replace(/^[ \t]+/, "");
+      if (!node.nextSibling) t = t.replace(/[ \t]+$/, "");
+      node.nodeValue = t;
+    }
+    drop.forEach((n) => n.remove());
+  }
+
   /* Dán hay bị thừa một dòng trống: nguồn copy thường kèm ký tự xuống dòng ở cuối,
      hoặc bọc cả đoạn trong một thẻ khối. Gỡ cả hai trước khi chèn. */
   function tidyPaste(html) {
     const box = document.createElement("div");
     box.innerHTML = html;
+
+    collapseWs(box);
+
+    // <li><div>chữ</div></li> -> <li>chữ</li>, tránh thẻ khối lồng trong mục danh sách
+    box.querySelectorAll("li").forEach((li) => {
+      while (
+        li.childNodes.length === 1 &&
+        li.firstChild.nodeType === 1 &&
+        /^(DIV|P)$/.test(li.firstChild.tagName)
+      ) {
+        li.innerHTML = li.firstChild.innerHTML;
+      }
+    });
 
     // chỉ có đúng một lớp bọc <div>/<p> bao ngoài -> gỡ ra cho khỏi thành đoạn mới
     while (
