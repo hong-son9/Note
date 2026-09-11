@@ -154,6 +154,20 @@ cũng không bị đụng tới.
 được tự nhận diện và chuyển sang HTML khi mở, không cần đổi schema. Mọi HTML đều đi qua bộ lọc
 (chỉ giữ thẻ định dạng cơ bản, chặn `script` / thuộc tính sự kiện) cả khi tải lên lẫn khi dán vào.
 
+## Giao diện
+
+Nền tối có lớp **aurora** trôi chậm phía sau; sidebar và thanh trên để kính mờ cho màu hắt qua.
+Riêng **vùng soạn thảo dùng nền đen đặc, không cho aurora hắt qua** — chỗ đọc lâu thì nền phải
+đứng yên và tương phản cao.
+
+Hiệu ứng: viên thuốc trượt theo tab đang mở, viền gradient quanh trang giấy khi đang gõ, chip
+trạng thái lưu đổi màu kèm vệt sáng quét, chấm nhấp nháy so le trên các note đã có nội dung,
+quầng sáng toả từ giữa nút khi rê chuột. Toàn bộ tự tắt nếu hệ điều hành bật chế độ giảm
+chuyển động (`prefers-reduced-motion`).
+
+Biểu tượng dùng SVG nét mảnh cùng một bộ thay cho emoji, để không phụ thuộc phông chữ của
+từng hệ điều hành.
+
 ## Cấu trúc file
 
 ```
