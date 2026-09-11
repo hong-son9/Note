@@ -1,73 +1,96 @@
-# 🚀 Deploy lên Cloudflare Pages (Direct Upload)
+# 🚀 Deploy lên Cloudflare Workers bằng Git
 
-Cách này **không cần Git**, chỉ kéo thả file. Miễn phí, có HTTPS sẵn.
+Push lên nhánh `main` → Cloudflare tự build và deploy. Không phải kéo thả file nữa.
 
-## Bước 1 — Đóng gói
+Worker hiện tại: **misty-grass-d263** → https://misty-grass-d263.hongson15102002.workers.dev
 
-```bash
-cd ~/Downloads/project-notes
-./build.sh
+---
+
+## Cách hoạt động
+
+```
+push lên main
+   └→ Cloudflare clone repo
+        └→ chạy ./build.sh   (dựng dist/ , sinh config.js từ biến môi trường)
+             └→ npx wrangler deploy   (đọc wrangler.jsonc, đẩy dist/ lên)
 ```
 
-Script sẽ kiểm tra `config.js` đã có key thật chưa (và chặn nếu lỡ dán nhầm secret key),
-rồi tạo ra:
+`config.js` **không nằm trong git** vì chứa key Supabase. Trên Cloudflare nó được
+`build.sh` sinh ra lúc build từ hai biến môi trường. Dưới máy thì vẫn lấy từ file `config.js`
+như cũ — cùng một script, không phải nhớ hai cách làm.
 
-- `dist/` — thư mục để kéo thả
-- `project-notes-cloudflare.zip` — file zip để upload
+---
 
-Chỉ 5 file được đóng gói: `index.html`, `styles.css`, `app.js`, `config.js`, `_headers`.
-`schema.sql`, `README.md`, `build.sh` **không** lên server.
+## Cài đặt một lần
 
-## Bước 2 — Tạo Pages project
+### 1. Nối repo
 
-1. Vào https://dash.cloudflare.com → **Compute (Workers & Pages)** → **Create**
-2. Chọn tab **Pages** → mục **Upload assets** → **Get started**
-3. Đặt tên project, ví dụ `project-notes` → **Create project**
-4. Kéo thả **thư mục `dist`** (hoặc file zip) vào khung upload
-5. Bấm **Deploy site**
+Cloudflare Dashboard → **Workers & Pages** → `misty-grass-d263` → **Settings** → **Build**
+→ **Connect** → chọn repo `hong-son9/Note`, nhánh `main`.
 
-Xong — web chạy ở `https://<tên-project>.pages.dev`.
+### 2. Khai báo lệnh build
 
-## Bước 3 — Khai báo domain với Supabase
+| Ô | Điền |
+|---|---|
+| Root directory | `/` |
+| Build command | `./build.sh` |
+| Deploy command | `npx wrangler deploy` |
 
-Vào Supabase Dashboard → **Authentication → URL Configuration**:
+### 3. Thêm biến môi trường cho build
 
-- **Site URL**: `https://<tên-project>.pages.dev`
-- **Redirect URLs**: thêm dòng trên vào
+Vẫn ở mục **Build** → **Build variables and secrets** → thêm 2 biến:
 
-Đăng nhập bằng mật khẩu vẫn chạy nếu bỏ qua bước này, nhưng làm cho đủ để sau này
-dùng được link đặt lại mật khẩu / xác nhận email.
+| Tên | Giá trị | Kiểu |
+|---|---|---|
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co` | Text |
+| `SUPABASE_ANON_KEY` | key `anon` / `publishable` | Secret |
 
-## Cập nhật về sau
+Lấy ở Supabase → **Project Settings → API**.
 
-Sửa code xong thì:
+> Phải là **build variables**, không phải runtime variables — `build.sh` chạy ở bước build.
+
+### 4. Xong
 
 ```bash
-./build.sh
+git push
 ```
 
-Vào Pages project → tab **Deployments** → **Create new deployment** → kéo thả `dist` lại.
-Mỗi lần upload là một bản deploy mới, có thể rollback về bản cũ bất cứ lúc nào.
+Cloudflare tự build và deploy. Xem tiến trình ở tab **Deployments**.
+
+---
+
+## Còn deploy tay được không?
+
+Vẫn được, dùng khi cần thử gấp mà chưa muốn commit:
+
+```bash
+./build.sh          # lấy key từ config.js dưới máy
+```
+
+Rồi kéo thả `dist/` hoặc `project-notes-cloudflare.zip` vào **Deployments → Create new deployment**.
+
+---
+
+## Kiểm tra đã lên đúng bản chưa
+
+Góc trái dưới, cạnh email, có dấu build dạng `b2026-09-11.1`. Đối chiếu với hằng số
+`BUILD` ở đầu `app.js`. Lệch nhau nghĩa là đang xem bản cũ trong cache — `Ctrl+Shift+R`.
 
 ---
 
 ## Về bảo mật
 
-`config.js` được deploy công khai, ai xem source cũng thấy `SUPABASE_ANON_KEY`.
-**Đây là thiết kế bình thường của Supabase** — key này chỉ có quyền mà RLS cho phép.
-Điều kiện để an toàn:
-
 | Việc cần làm | Ở đâu |
 |---|---|
 | RLS bật trên cả 3 bảng + policy `auth.uid() = user_id` | đã có trong `schema.sql` |
-| **Tắt đăng ký tài khoản mới** | Authentication → Sign In / Providers → Email → tắt *Allow new users to sign up* |
-| Không bao giờ để `service_role` / `sb_secret_…` trong `config.js` | `build.sh` tự chặn |
+| **Tắt đăng ký tài khoản mới** | Supabase → Authentication → Sign In / Providers → Email → tắt *Allow new users to sign up* |
+| Không bao giờ để `service_role` / `sb_secret_…` làm anon key | `build.sh` tự chặn, cả hai đường lấy key |
 
-Thiếu bước tắt đăng ký thì người lạ vẫn có thể tự tạo tài khoản trên trang của bạn —
-họ không đọc được ghi chú của bạn (RLS chặn), nhưng sẽ chiếm chỗ trong project Supabase.
+Key `anon` luôn công khai trong `config.js` mà trình duyệt tải về — đó là thiết kế của Supabase.
+Giữ nó ngoài repo public chỉ để bot quét GitHub không nhặt được, **không** phải lớp bảo vệ chính.
+Lớp bảo vệ chính là RLS và việc tắt đăng ký.
 
-### Muốn chặn hẳn người lạ vào được trang
+### Chặn hẳn người lạ vào trang
 
-Cloudflare Pages có **Cloudflare Access** (miễn phí tới 50 user):
-Pages project → **Settings → General → Enable Access policy**, đặt policy chỉ cho email của bạn.
-Khi đó người lạ mở link sẽ bị chặn ngay ở cổng, chưa thấy được cả màn hình đăng nhập.
+Worker → **Settings → Access** → bật **Cloudflare Access**, đặt policy chỉ cho email của bạn.
+Miễn phí tới 50 user. Người lạ mở link sẽ bị chặn trước cả màn hình đăng nhập.
