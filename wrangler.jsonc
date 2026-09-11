@@ -3,6 +3,11 @@
   // Cloudflare Workers Builds đọc file này khi deploy từ Git.
   "name": "misty-grass-d263",
   "compatibility_date": "2026-09-11",
+  // Chạy build.sh trước khi deploy. Để ngay trong repo để không phụ thuộc
+  // vào việc ô "Build command" trên dashboard có được điền hay không.
+  "build": {
+    "command": "./build.sh"
+  },
   "assets": {
     "directory": "./dist"
   },
