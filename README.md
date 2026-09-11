@@ -77,7 +77,18 @@ Trong VS Code: cài extension **Live Server** → chuột phải `index.html` �
 | Sắp xếp note | **Kéo tab** sang trái/phải — note quan trọng để lên đầu, thứ tự tự lưu |
 | Ghi chú | Gõ thẳng vào trang giấy, định dạng bằng thanh công cụ — **không có nút Lưu, không có popup** |
 | Tìm dự án | Ô tìm ở sidebar |
+| Quay lại chỗ đang làm | Tự động — F5 hay mở lại trình duyệt đều vào đúng dự án và note lần trước |
 | Tìm mọi ghi chú | Ô tìm trên thanh trên cùng, hoặc `Ctrl/Cmd + K` |
+
+### Nhớ chỗ đang làm dở
+
+Dự án đang mở và note đang mở **của từng dự án** được ghi vào `localStorage`. Nên:
+
+- F5 hay mở lại trình duyệt → vào thẳng dự án và note lần trước, không về cái đầu tiên
+- Quay lại một dự án cũ → mở đúng note bạn xem lần trước ở dự án đó
+
+Dữ liệu này nằm riêng theo tài khoản, và nếu dự án hay note đã bị xoá thì tự bỏ qua,
+quay về mục đầu tiên. Vị trí cuộn trong trang giấy chưa được nhớ.
 
 ### Tìm kiếm toàn bộ
 
