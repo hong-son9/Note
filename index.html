@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevNotes — Ghi chú dự án</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>" />
+</head>
+<body>
+  <!-- ============ MÀN HÌNH ĐĂNG NHẬP ============ -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-bg"></div>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="logo">🗂️</div>
+        <div>
+          <h1>DevNotes</h1>
+          <p>Ghi chú dự án cá nhân — đăng nhập để tiếp tục</p>
+        </div>
+      </div>
+
+      <form id="auth-form" autocomplete="on">
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="auth-email" placeholder="ban@congty.com" required />
+        </label>
+        <label class="field">
+          <span>Mật khẩu</span>
+          <input type="password" id="auth-password" placeholder="••••••••" minlength="6" required />
+        </label>
+        <div id="auth-message" class="auth-message hidden"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="auth-submit">Đăng nhập</button>
+      </form>
+
+      <div class="auth-foot">
+        <span>Khu vực riêng tư — chỉ dành cho tài khoản đã được cấp.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MÀN HÌNH CHÍNH ============ -->
+  <div id="app-screen" class="app-screen hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="brand">
+          <span class="logo-sm">🗂️</span>
+          <span class="brand-name">DevNotes</span>
+        </div>
+        <button class="icon-btn only-mobile" id="close-sidebar" title="Đóng">✕</button>
+      </div>
+
+      <div class="sidebar-search">
+        <input type="search" id="project-search" placeholder="Tìm dự án…" />
+      </div>
+
+      <div class="sidebar-section-title">
+        <span>Dự án</span>
+        <span class="count-pill" id="project-count">0</span>
+      </div>
+
+      <nav class="project-list" id="project-list"></nav>
+
+      <button class="btn btn-ghost btn-block add-project-btn" id="add-project-btn">
+        <span class="plus">+</span> Thêm dự án
+      </button>
+
+      <div class="sidebar-foot">
+        <div class="user-chip">
+          <div class="avatar" id="user-avatar">?</div>
+          <div class="user-info">
+            <div class="user-email" id="user-email">—</div>
+            <div class="user-role">Đã đăng nhập · <span id="build-stamp">—</span></div>
+          </div>
+        </div>
+        <button class="btn btn-danger-ghost btn-block" id="logout-btn">Đăng xuất</button>
+      </div>
+    </aside>
+
+    <!-- Nội dung -->
+    <main class="content">
+      <header class="topbar">
+        <button class="icon-btn only-mobile" id="open-sidebar" title="Menu">☰</button>
+        <div class="crumbs">
+          <span class="crumb-muted">Dự án</span>
+          <span class="crumb-sep">/</span>
+          <span class="crumb-strong" id="current-project-name">Chưa chọn</span>
+        </div>
+        <div class="global-search">
+          <span class="gs-icon">⌕</span>
+          <input type="search" id="gs-input" autocomplete="off" spellcheck="false"
+                 placeholder="Tìm trong tất cả ghi chú…" />
+          <kbd class="gs-kbd">Ctrl K</kbd>
+          <div class="gs-panel hidden" id="gs-panel">
+            <div class="gs-status" id="gs-status"></div>
+            <div class="gs-list" id="gs-results"></div>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" id="rename-project-btn" title="Đổi tên dự án">✎ Sửa</button>
+          <button class="btn btn-danger-ghost" id="delete-project-btn" title="Xoá dự án">🗑 Xoá</button>
+        </div>
+      </header>
+
+      <!-- Lỗi tải dữ liệu -->
+      <section class="load-error hidden" id="load-error">
+        <div class="empty-emoji">⚠️</div>
+        <h2>Không tải được dữ liệu</h2>
+        <p class="err-detail" id="load-error-detail"></p>
+        <div class="err-actions">
+          <button class="btn btn-primary" id="retry-load">Thử lại</button>
+          <button class="btn btn-ghost" id="retry-relogin">Đăng nhập lại</button>
+        </div>
+      </section>
+
+      <!-- Trạng thái rỗng -->
+      <section class="empty-state" id="empty-state">
+        <div class="empty-emoji">📁</div>
+        <h2>Chưa có dự án nào được chọn</h2>
+        <p>Tạo một dự án ở thanh bên trái, rồi thêm các note như <em>Cách chạy dự án</em>, <em>Bảng cần nhớ</em>, <em>Ticket tìm hiểu</em>…</p>
+        <button class="btn btn-primary" id="empty-add-project">+ Tạo dự án đầu tiên</button>
+      </section>
+
+      <!-- Khu vực note -->
+      <section class="workspace hidden" id="workspace">
+        <div class="tabs-row">
+          <div class="tabs" id="note-tabs"></div>
+          <div class="tabs-actions">
+            <button class="btn btn-ghost tab-add" id="add-tab-btn">+ Thêm note</button>
+            <button class="icon-btn" id="rename-tab-btn" title="Đổi tên note">✎</button>
+            <button class="icon-btn danger" id="delete-tab-btn" title="Xoá note">🗑</button>
+          </div>
+        </div>
+
+        <!-- Thanh định dạng -->
+        <div class="pad-toolbar" id="fmt-bar">
+          <select class="fmt-select" id="fmt-block" title="Kiểu đoạn">
+            <option value="p">Văn bản</option>
+            <option value="h1">Tiêu đề lớn</option>
+            <option value="h2">Tiêu đề vừa</option>
+            <option value="h3">Tiêu đề nhỏ</option>
+            <option value="pre">Khối code</option>
+            <option value="blockquote">Trích dẫn</option>
+          </select>
+
+          <select class="fmt-select" id="fmt-size" title="Cỡ chữ">
+            <option value="">Cỡ chữ</option>
+            <option value="12">12</option>
+            <option value="14">14</option>
+            <option value="16">16</option>
+            <option value="18">18</option>
+            <option value="22">22</option>
+            <option value="26">26</option>
+            <option value="32">32</option>
+            <option value="40">40</option>
+          </select>
+
+          <span class="fmt-sep"></span>
+
+          <button class="fmt-btn" data-cmd="bold" title="Đậm — Ctrl+B"><b>B</b></button>
+
+          <span class="save-status" id="save-status"></span>
+        </div>
+
+        <div class="pad-wrap">
+          <div id="notepad" class="notepad" contenteditable="true" spellcheck="false"
+               data-placeholder="Gõ thẳng vào đây — tự động lưu. Bôi đen chữ rồi dùng thanh công cụ để tô đậm, đổi cỡ, đổ màu…"></div>
+          <div class="pad-placeholder hidden" id="pad-placeholder">
+            <p>Dự án này chưa có note nào.</p>
+            <button class="btn btn-primary" id="pad-add-tab">+ Tạo note đầu tiên</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============ MODAL ============ -->
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="modal" id="modal">
+      <div class="modal-head">
+        <h3 id="modal-title">Tiêu đề</h3>
+        <button class="icon-btn" id="modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="modal-cancel">Huỷ</button>
+        <button class="btn btn-primary" id="modal-ok">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Thông báo -->
+  <div class="toast-wrap" id="toast-wrap"></div>
+
+  <!-- Màn hình chờ -->
+  <div class="splash" id="splash">
+    <div class="spinner"></div>
+    <p>Đang kết nối Supabase…</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
