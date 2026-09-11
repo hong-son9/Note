@@ -128,7 +128,8 @@ cũng không bị đụng tới.
 
 **Tự lưu:**
 
-- Lưu sau 1,2 giây ngừng gõ, và lưu ngay khi bấm ra ngoài hoặc chuyển tab
+- Lưu sau **10 giây** ngừng gõ — đủ lâu để dán nhầm rồi sửa lại trước khi ghi xuống database
+- Lưu **ngay lập tức** khi bấm ra ngoài ô soạn, chuyển note, chuyển dự án, hoặc đăng xuất
 - `Ctrl/Cmd + S` — lưu ngay · `Ctrl+B` / `Ctrl+I` / `Ctrl+U` — đậm / nghiêng / gạch chân
 - `Tab` — chèn 2 dấu cách, không nhảy focus
 - Trạng thái góc phải thanh công cụ: `● Chưa lưu` → `Đang lưu…` → `✓ Đã lưu lúc 09:41`

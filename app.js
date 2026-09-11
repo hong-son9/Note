@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-09-11.3";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-09-11.4";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -650,7 +650,9 @@
   /* =====================================================================
      NOTEPAD CÓ ĐỊNH DẠNG — gõ thẳng, tự lưu
      ===================================================================== */
-  const AUTOSAVE_MS = 1200;
+  /* 10 giây: đủ lâu để dán nhầm rồi sửa lại trước khi ghi xuống database.
+     Rời khỏi ô soạn, chuyển tab hay Ctrl+S vẫn lưu ngay lập tức. */
+  const AUTOSAVE_MS = 10000;
 
   /* ---------- Làm sạch HTML (chống dán rác / thẻ nguy hiểm) ---------- */
   const ALLOWED_TAGS = {
