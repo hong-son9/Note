@@ -1,0 +1,12 @@
+{
+  // Worker chỉ phục vụ file tĩnh — không có script, chỉ có thư mục assets.
+  // Cloudflare Workers Builds đọc file này khi deploy từ Git.
+  "name": "misty-grass-d263",
+  "compatibility_date": "2026-09-11",
+  "assets": {
+    "directory": "./dist"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

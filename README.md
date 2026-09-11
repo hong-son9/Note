@@ -133,11 +133,12 @@ project-notes/
 ├── config.example.js # Mẫu để commit lên git
 ├── _headers          # Header bảo mật cho Cloudflare Pages
 ├── build.sh          # Đóng gói bản deploy -> dist/ + .zip
+├── wrangler.jsonc    # Cấu hình Cloudflare Workers (deploy từ Git)
 ├── schema.sql        # SQL tạo bảng + RLS
 ├── DEPLOY.md         # Hướng dẫn deploy lên Cloudflare Pages
 └── README.md
 ```
 
-Deploy lên Cloudflare Pages: xem [DEPLOY.md](DEPLOY.md) — chạy `./build.sh` rồi kéo thả `dist/`.
+Deploy lên Cloudflare: xem [DEPLOY.md](DEPLOY.md) — nối repo với Workers Builds, `git push` là tự lên.
 
 > Nếu đưa lên git, thêm `config.js` vào `.gitignore` và chỉ commit `config.example.js`.
