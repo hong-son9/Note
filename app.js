@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-09-11.4";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-09-11.5";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -234,6 +234,30 @@
     } catch (e) { console.warn("ensureToken:", e); return false; }
   }
 
+  /* ---------- Nhớ chỗ đang làm dở ----------
+     Lưu dự án đang mở, và note đang mở CỦA TỪNG dự án, vào localStorage.
+     Nhờ vậy F5 hay mở lại trình duyệt là vào thẳng chỗ cũ, và quay lại một
+     dự án cũ cũng mở đúng note lần trước chứ không phải note đầu tiên. */
+  const placeKey = () => "dn-last:" + (state.user ? state.user.id : "?");
+
+  function recallPlace() {
+    if (!state.user) return {};
+    try {
+      const v = JSON.parse(localStorage.getItem(placeKey()) || "{}");
+      return v && typeof v === "object" ? v : {};
+    } catch (e) { return {}; }
+  }
+
+  function rememberPlace() {
+    if (!state.user || !state.projectId) return;
+    const cur = recallPlace();
+    const tabs = cur.t && typeof cur.t === "object" ? cur.t : {};
+    if (state.tabId) tabs[state.projectId] = state.tabId;
+    try {
+      localStorage.setItem(placeKey(), JSON.stringify({ p: state.projectId, t: tabs }));
+    } catch (e) { /* chế độ ẩn danh chặn localStorage -> bỏ qua */ }
+  }
+
   function showLoadError(e) {
     const box = $("load-error");
     if (!e) { box.classList.add("hidden"); return; }
@@ -281,9 +305,11 @@
     state.projects = data || [];
     renderProjects();
 
+    const last = recallPlace();
     const target =
       selectId ||
       (state.projects.some((p) => p.id === state.projectId) ? state.projectId : null) ||
+      (state.projects.some((p) => p.id === last.p) ? last.p : null) ||
       (state.projects[0] && state.projects[0].id);
 
     $("load-error").classList.add("hidden");
@@ -415,11 +441,15 @@
     if (error) return err(error);
     state.tabs = data || [];
 
+    const last = recallPlace();
+    const lastTab = last.t && typeof last.t === "object" ? last.t[state.projectId] : null;
     const target =
       selectId ||
       (state.tabs.some((t) => t.id === state.tabId) ? state.tabId : null) ||
+      (state.tabs.some((t) => t.id === lastTab) ? lastTab : null) ||
       (state.tabs[0] && state.tabs[0].id) || null;
     state.tabId = target;
+    rememberPlace();
 
     await loadItems();
   }
@@ -1095,6 +1125,7 @@
     if (state.projectId !== h.projectId) await selectProject(h.projectId);
     if (state.tabId !== h.tabId) {
       state.tabId = h.tabId;
+      rememberPlace();
       renderTabs();
       renderPad();
     }
@@ -1340,6 +1371,7 @@
       if (!b || dragTab || b.dataset.tab === state.tabId) return;
       await flushPad();
       state.tabId = b.dataset.tab;
+      rememberPlace();
       renderTabs();
       renderPad();
       $("notepad").focus();
