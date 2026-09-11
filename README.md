@@ -103,10 +103,21 @@ Mỗi note (tab) là **một trang giấy duy nhất**, luôn ở chế độ g�
 | Kiểu đoạn | Văn bản · Tiêu đề lớn/vừa/nhỏ · Khối code · Trích dẫn |
 | Cỡ chữ | 12 → 40 px |
 | Kiểu chữ | **B** in đậm |
+| Liên kết | 🔗 bôi đen chữ rồi bấm (hoặc `Ctrl+L`), dán địa chỉ vào |
+| Dọn dẹp | ✕ xoá định dạng của phần đang bôi đen, gỡ cả liên kết |
 
-Cách dùng: bôi đen phần chữ → chọn trên thanh công cụ. Không có tuỳ chọn màu — chữ luôn dùng
-màu mặc định của theme để đảm bảo đọc được trên nền tối; nội dung dán từ nơi khác cũng bị gỡ
-màu chữ / màu nền vì lý do đó.
+Cách dùng: bôi đen phần chữ → chọn trên thanh công cụ.
+
+**Liên kết:** bôi đen chữ → bấm 🔗 → dán địa chỉ. Hoặc nhanh hơn: copy link sẵn rồi bôi đen chữ
+và `Ctrl+V` — chữ đó tự thành liên kết. Bấm vào liên kết là mở tab mới; giữ `Alt` khi bấm nếu
+muốn đặt con trỏ vào để sửa chữ.
+
+**Không có màu.** Chữ luôn dùng màu mặc định của theme để đọc được trên nền tối. **Màu nền bị
+loại hẳn** ở khâu lọc — vì chữ có nền thì gõ tiếp ngay sau nó sẽ bị ăn theo nền đó, rất khó chịu.
+Ghi chú cũ lỡ có nền sẽ được dọn sạch ngay khi mở, và ghi đè ở lần lưu kế tiếp.
+
+**Dán không bị thừa dòng.** Nguồn copy thường kèm ký tự xuống dòng ở cuối hoặc bọc cả đoạn trong
+một thẻ khối; cả hai đều bị cắt trước khi chèn.
 
 **Tự lưu:**
 

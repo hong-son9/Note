@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-09-11.1";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-09-11.2";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -659,8 +659,11 @@
     UL: [], OL: [], LI: ["style"], PRE: ["style"], CODE: [], BLOCKQUOTE: [],
     H1: ["style"], H2: ["style"], H3: ["style"], FONT: ["color", "size", "face"]
   };
+  /* Cố tình KHÔNG có "background-color": công cụ tô nền đã bỏ, mà chữ có nền
+     thì gõ tiếp ngay sau nó sẽ bị ăn theo cái nền đó. Loại hẳn ở khâu lọc thì
+     nền không vào được, kể cả khi dán từ nơi khác hay mở ghi chú cũ. */
   const ALLOWED_CSS = [
-    "color", "background-color", "font-size", "font-weight", "font-style",
+    "color", "font-size", "font-weight", "font-style",
     "text-decoration", "text-decoration-line", "text-align", "font-family"
   ];
 
@@ -716,6 +719,46 @@
     });
     box.querySelectorAll("font[color]").forEach((el) => el.removeAttribute("color"));
     return box.innerHTML;
+  }
+
+  /* Dán hay bị thừa một dòng trống: nguồn copy thường kèm ký tự xuống dòng ở cuối,
+     hoặc bọc cả đoạn trong một thẻ khối. Gỡ cả hai trước khi chèn. */
+  function tidyPaste(html) {
+    const box = document.createElement("div");
+    box.innerHTML = html;
+
+    // chỉ có đúng một lớp bọc <div>/<p> bao ngoài -> gỡ ra cho khỏi thành đoạn mới
+    while (
+      box.childNodes.length === 1 &&
+      box.firstChild.nodeType === 1 &&
+      /^(DIV|P)$/.test(box.firstChild.tagName) &&
+      !box.firstChild.getAttribute("style")
+    ) {
+      box.innerHTML = box.firstChild.innerHTML;
+    }
+
+    // cắt <br> và khối rỗng ở cuối
+    let n;
+    while ((n = box.lastChild)) {
+      if (n.nodeType === 3 && !n.nodeValue.trim()) { n.remove(); continue; }
+      if (n.nodeType === 1 && n.tagName === "BR") { n.remove(); continue; }
+      if (n.nodeType === 1 && /^(DIV|P)$/.test(n.tagName) && !n.textContent.trim()) { n.remove(); continue; }
+      break;
+    }
+    return box.innerHTML;
+  }
+
+  const isUrl = (t) => /^(https?:\/\/|www\.)[^\s]+$/i.test(String(t || "").trim());
+  const toHref = (t) => {
+    const v = String(t).trim();
+    return /^(https?:|mailto:)/i.test(v) ? v : "https://" + v;
+  };
+
+  function markLinksExternal() {
+    $("notepad").querySelectorAll("a[href]").forEach((a) => {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+    });
   }
 
   const looksLikeHtml = (t) =>
@@ -1088,6 +1131,37 @@
     onPadInput();
   }
 
+  /* Chèn liên kết: bôi đen chữ rồi bấm, hoặc không bôi gì thì nhập cả chữ hiển thị */
+  function insertLink() {
+    const sel = String(window.getSelection() || "").trim();
+    rememberSel();
+    openModal({
+      title: sel ? 'Gắn liên kết cho “' + (sel.length > 40 ? sel.slice(0, 40) + "…" : sel) + '”' : "Chèn liên kết",
+      bodyHtml:
+        '<label class="field"><span>Địa chỉ</span>' +
+        '<input id="f-name" placeholder="Dán link vào đây" />' +
+        '<span class="hint">Thiếu https:// thì tự thêm.</span></label>' +
+        (sel ? "" :
+          '<label class="field"><span>Chữ hiển thị</span>' +
+          '<input id="f-desc" placeholder="Để trống sẽ hiện nguyên địa chỉ" /></label>'),
+      okText: "Gắn liên kết",
+      onSubmit: () => {
+        const raw = $("f-name").value.trim();
+        if (!raw) { toast("Hãy nhập địa chỉ", "error"); return false; }
+        const href = toHref(raw);
+        if (sel) {
+          exec("createLink", href);
+        } else {
+          const label = $("f-desc").value.trim() || href;
+          exec("insertHTML",
+            '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(label) + "</a>&nbsp;");
+        }
+        markLinksExternal();
+        onPadInput();
+      }
+    });
+  }
+
   function syncToolbar() {
     const b = document.querySelector('.fmt-btn[data-cmd="bold"]');
     if (!b) return;
@@ -1107,6 +1181,7 @@
 
     pad.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); savePad(true); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") { e.preventDefault(); insertLink(); return; }
       if (e.key === "Tab") {
         e.preventDefault();
         document.execCommand("insertHTML", false, "&nbsp;&nbsp;");
@@ -1114,14 +1189,36 @@
       }
     });
 
-    // Dán: lọc sạch HTML, giữ định dạng cơ bản
+    // Dán: lọc sạch HTML, cắt xuống dòng thừa, URL thì thành liên kết
     pad.addEventListener("paste", (e) => {
       e.preventDefault();
       const dt = e.clipboardData;
       const html = dt.getData("text/html");
       const txt = dt.getData("text/plain");
-      document.execCommand("insertHTML", false, html ? stripColors(sanitizeHtml(html)) : plainToHtml(txt));
+
+      // dán một URL trong khi đang bôi đen chữ -> biến chữ đó thành liên kết
+      if (isUrl(txt) && String(window.getSelection() || "").trim()) {
+        document.execCommand("createLink", false, toHref(txt));
+        markLinksExternal();
+        onPadInput();
+        return;
+      }
+
+      const payload = html
+        ? tidyPaste(stripColors(sanitizeHtml(html)))
+        : plainToHtml(txt.replace(/\r\n/g, "\n").replace(/[ \t]*\n+$/, ""));
+
+      document.execCommand("insertHTML", false, payload);
+      markLinksExternal();
       onPadInput();
+    });
+
+    // Bấm vào liên kết thì mở ra (giữ Alt nếu muốn đặt con trỏ để sửa chữ)
+    pad.addEventListener("click", (e) => {
+      const a = e.target.closest("a[href]");
+      if (!a || !pad.contains(a) || e.altKey) return;
+      e.preventDefault();
+      window.open(a.getAttribute("href"), "_blank", "noopener,noreferrer");
     });
 
     // Giữ vùng bôi đen khi bấm nút trên thanh công cụ
@@ -1131,7 +1228,14 @@
 
     bar.addEventListener("click", (e) => {
       const b = e.target.closest(".fmt-btn");
-      if (b && b.dataset.cmd) exec(b.dataset.cmd);
+      if (!b) return;
+      if (b.dataset.cmd) { exec(b.dataset.cmd); return; }
+      if (b.dataset.act === "link") insertLink();
+      else if (b.dataset.act === "clear") {
+        exec("unlink");          // removeFormat không gỡ được thẻ <a>
+        exec("removeFormat");
+        exec("formatBlock", "p");
+      }
     });
 
     $("fmt-block").addEventListener("change", (e) => {

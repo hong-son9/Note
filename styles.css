@@ -407,7 +407,8 @@ button, input, textarea, select{ font-family:inherit; font-size:14px; color:inhe
 .notepad h2{ font-size:21px; margin:.6em 0 .35em; color:#fff; font-family:"Inter",sans-serif; }
 .notepad h3{ font-size:17px; margin:.6em 0 .35em; color:#dfe5ee; font-family:"Inter",sans-serif; }
 .notepad p{ margin:0 0 .2em; }
-.notepad a{ color:var(--cyan); text-decoration:underline; }
+.notepad a{ color:var(--cyan); text-decoration:underline; cursor:pointer; }
+.notepad a:hover{ color:#7ceaf4; text-decoration-thickness:2px; }
 .notepad ul, .notepad ol{ margin:.3em 0; padding-left:1.6em; }
 .notepad li{ margin:.15em 0; }
 .notepad code{
