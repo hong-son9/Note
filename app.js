@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-09-11.5";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-09-11.6";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -248,14 +248,46 @@
     } catch (e) { return {}; }
   }
 
-  function rememberPlace() {
+  function savePlace(patch) {
     if (!state.user || !state.projectId) return;
     const cur = recallPlace();
-    const tabs = cur.t && typeof cur.t === "object" ? cur.t : {};
-    if (state.tabId) tabs[state.projectId] = state.tabId;
+    const next = {
+      p: state.projectId,
+      t: cur.t && typeof cur.t === "object" ? cur.t : {},
+      s: cur.s && typeof cur.s === "object" ? cur.s : {}
+    };
+    patch(next);
     try {
-      localStorage.setItem(placeKey(), JSON.stringify({ p: state.projectId, t: tabs }));
+      localStorage.setItem(placeKey(), JSON.stringify(next));
     } catch (e) { /* chế độ ẩn danh chặn localStorage -> bỏ qua */ }
+  }
+
+  function rememberPlace() {
+    savePlace((v) => { if (state.tabId) v.t[state.projectId] = state.tabId; });
+  }
+
+  /* Vị trí cuộn lưu theo từng note. Phải gọi TRƯỚC khi đổi state.tabId,
+     nếu không sẽ ghi vị trí của note cũ vào tên note mới. */
+  function rememberScroll() {
+    const pad = $("notepad");
+    if (!pad || !state.tabId) return;
+    savePlace((v) => { v.s[state.tabId] = Math.round(pad.scrollTop); });
+  }
+
+  let scrollRestoreRAF = null;
+
+  function restoreScroll() {
+    const pad = $("notepad");
+    if (scrollRestoreRAF) cancelAnimationFrame(scrollRestoreRAF);
+    pad.scrollTop = 0;
+    const map = recallPlace().s;
+    const y = map && typeof map === "object" ? map[state.tabId] : 0;
+    if (!y) return;
+    // chờ một khung hình cho nội dung vừa gán xong được dựng xong bố cục
+    scrollRestoreRAF = requestAnimationFrame(() => {
+      scrollRestoreRAF = null;
+      pad.scrollTop = y;
+    });
   }
 
   function showLoadError(e) {
@@ -415,7 +447,7 @@
   }
 
   async function selectProject(id) {
-    if (id !== state.projectId) await flushPad();
+    if (id !== state.projectId) { rememberScroll(); await flushPad(); }
     state.projectId = id;
     state.tabId = null;
     const p = state.projects.find((x) => x.id === id);
@@ -897,6 +929,7 @@
     state.doc = { html: norm, saved: norm, ids: mine.map((i) => i.id) };
     state.dirty = false;
     setStatus(htmlToText(norm).trim() ? "saved" : "");
+    restoreScroll();
   }
 
   function setStatus(kind, extra) {
@@ -1094,6 +1127,7 @@
   /* Bôi đen đúng đoạn khớp trong trang giấy — dùng Range nên KHÔNG đụng vào nội dung */
   function focusMatchInPad(q) {
     const pad = $("notepad");
+    if (scrollRestoreRAF) { cancelAnimationFrame(scrollRestoreRAF); scrollRestoreRAF = null; }
     const needle = (q || "").toLowerCase();
     if (!needle) return;
     const walker = document.createTreeWalker(pad, NodeFilter.SHOW_TEXT, null);
@@ -1121,6 +1155,7 @@
     gsClose();
     $("gs-input").blur();
 
+    rememberScroll();
     await flushPad();
     if (state.projectId !== h.projectId) await selectProject(h.projectId);
     if (state.tabId !== h.tabId) {
@@ -1259,6 +1294,13 @@
     const bar = $("fmt-bar");
 
     pad.addEventListener("input", onPadInput);
+
+    let scrollSaveTimer = null;
+    pad.addEventListener("scroll", () => {
+      clearTimeout(scrollSaveTimer);
+      scrollSaveTimer = setTimeout(rememberScroll, 400);
+    });
+
     pad.addEventListener("keyup", () => { rememberSel(); syncToolbar(); });
     pad.addEventListener("mouseup", () => { rememberSel(); syncToolbar(); });
     pad.addEventListener("blur", () => { rememberSel(); if (state.dirty) savePad(); });
@@ -1369,6 +1411,7 @@
     $("note-tabs").addEventListener("click", async (e) => {
       const b = e.target.closest("[data-tab]");
       if (!b || dragTab || b.dataset.tab === state.tabId) return;
+      rememberScroll();
       await flushPad();
       state.tabId = b.dataset.tab;
       rememberPlace();
