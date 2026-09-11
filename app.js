@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-09-11.6";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-09-11.7";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -493,7 +493,7 @@
         "Chưa có note nào — bấm “+ Thêm note” để tạo (VD: Cách chạy dự án, Bảng cần nhớ, Ticket tìm hiểu…)</div>";
       return;
     }
-    $("note-tabs").innerHTML = state.tabs
+    $("note-tabs").innerHTML = '<span class="tab-ind" id="tab-ind"></span>' + state.tabs
       .map((t) => {
         const filled = state.items.some(
           (i) => i.tab_id === t.id && (i.content || "").trim()
@@ -508,6 +508,18 @@
       })
       .join("");
     scrollActiveTabIntoView();
+    moveTabInd();
+  }
+
+  /* Viên thuốc trượt theo tab đang mở. Đo sau khi font đã tải, vì trước đó
+     bề rộng tab còn tính theo font dự phòng nên sẽ lệch. */
+  function moveTabInd() {
+    const ind = $("tab-ind");
+    const on = $("note-tabs").querySelector(".tab.active");
+    if (!ind || !on) return;
+    ind.style.width = on.offsetWidth + "px";
+    ind.style.height = on.offsetHeight + "px";
+    ind.style.transform = "translateX(" + on.offsetLeft + "px)";
   }
 
   function addTab() {
@@ -706,7 +718,8 @@
     }, { passive: false });
 
     wrap.addEventListener("scroll", updateTabFades);
-    window.addEventListener("resize", updateTabFades);
+    window.addEventListener("resize", () => { updateTabFades(); moveTabInd(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveTabInd);
   }
 
   /* =====================================================================
