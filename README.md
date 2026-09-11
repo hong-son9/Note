@@ -116,8 +116,15 @@ muốn đặt con trỏ vào để sửa chữ.
 loại hẳn** ở khâu lọc — vì chữ có nền thì gõ tiếp ngay sau nó sẽ bị ăn theo nền đó, rất khó chịu.
 Ghi chú cũ lỡ có nền sẽ được dọn sạch ngay khi mở, và ghi đè ở lần lưu kế tiếp.
 
-**Dán không bị thừa dòng.** Nguồn copy thường kèm ký tự xuống dòng ở cuối hoặc bọc cả đoạn trong
-một thẻ khối; cả hai đều bị cắt trước khi chèn.
+**Dán không bị thừa dòng.** Trang giấy để `white-space: pre-wrap` nhằm giữ thụt lề khi bạn gõ
+lệnh — đổi lại, mọi ký tự xuống dòng và thụt lề *giữa các thẻ* của HTML nguồn cũng bị hiển thị
+thành khoảng trắng thật, khiến dán danh sách vào thì thừa dòng và dấu đầu dòng rời khỏi chữ.
+Khi dán, các khoảng trắng đó bị dọn, `<li><p>…</p></li>` được gỡ về `<li>…</li>`, và ký tự
+xuống dòng thừa ở cuối bị cắt.
+
+Chỉ khoảng trắng **có kèm ký tự xuống dòng** mới bị dọn. Thụt lề thật của code (copy từ VS Code,
+terminal) không có xuống dòng trong cùng một text node nên được giữ nguyên. Nội dung trong `<pre>`
+cũng không bị đụng tới.
 
 **Tự lưu:**
 
