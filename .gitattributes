@@ -1,0 +1,3 @@
+# Script chạy bằng bash: giữ xuống dòng LF, CRLF làm bash lỗi
+*.sh text eol=lf
+.githooks/* text eol=lf
