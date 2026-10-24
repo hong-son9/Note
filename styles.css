@@ -438,6 +438,18 @@ button, input, textarea, select{ font-family:inherit; font-size:14px; color:inhe
   border-left:3px solid var(--cyan); background:rgba(53,214,227,.07);
   color:var(--text-2); border-radius:0 8px 8px 0;
 }
+.notepad table{
+  display:block; width:max-content; max-width:100%; overflow-x:auto;
+  border-collapse:collapse; margin:.5em 0; line-height:1.5;
+  font-size:.95em;
+}
+.notepad th, .notepad td{
+  border:1px solid var(--line); padding:5px 10px;
+  text-align:left; vertical-align:top; min-width:3em;
+}
+.notepad th{ background:rgba(109,124,255,.14); font-weight:600; }
+.notepad tbody tr:nth-child(even) td{ background:rgba(255,255,255,.025); }
+.notepad td p, .notepad th p, .notepad td div, .notepad th div{ margin:0; }
 .notepad hr{ border:0; border-top:1px solid var(--line); margin:1em 0; }
 .notepad::selection, .notepad ::selection{ background:rgba(109,124,255,.4); }
 

@@ -735,8 +735,13 @@
     SPAN: ["style"], DIV: ["style"], P: ["style"], BR: [], HR: [],
     UL: [], OL: [], LI: ["style"], PRE: ["style"], CODE: [], BLOCKQUOTE: [],
     H1: ["style"], H2: ["style"], H3: ["style"], FONT: ["color", "size", "face"],
-    IMG: ["src", "alt"]
+    IMG: ["src", "alt"],
+    TABLE: [], CAPTION: [], THEAD: [], TBODY: [], TFOOT: [], TR: [],
+    TH: ["colspan", "rowspan", "style"], TD: ["colspan", "rowspan", "style"]
   };
+  /* Thẻ phải bỏ cả ruột: bóc vỏ <style> của Excel/Google Sheets/Word thì
+     nguyên đoạn CSS sẽ hiện ra thành chữ. */
+  const DROP_TAGS = /^(STYLE|SCRIPT|META|LINK|TITLE|HEAD|TEMPLATE|NOSCRIPT|XML|COLGROUP|COL)$/;
   /* Cố tình KHÔNG có "background-color": công cụ tô nền đã bỏ, mà chữ có nền
      thì gõ tiếp ngay sau nó sẽ bị ăn theo cái nền đó. Loại hẳn ở khâu lọc thì
      nền không vào được, kể cả khi dán từ nơi khác hay mở ghi chú cũ. */
@@ -763,6 +768,7 @@
         if (child.nodeType === 3) return;                       // text
         if (child.nodeType !== 1) { child.remove(); return; }   // comment…
         const tag = child.tagName;
+        if (DROP_TAGS.test(tag)) { child.remove(); return; }
         if (!ALLOWED_TAGS[tag]) {                               // thẻ lạ -> bóc vỏ, giữ ruột
           const parent = child.parentNode;
           while (child.firstChild) parent.insertBefore(child.firstChild, child);
@@ -803,7 +809,7 @@
     return box.innerHTML;
   }
 
-  const BLOCK_TAG = /^(DIV|P|UL|OL|LI|H1|H2|H3|BLOCKQUOTE|PRE|HR|BR)$/;
+  const BLOCK_TAG = /^(DIV|P|UL|OL|LI|H1|H2|H3|BLOCKQUOTE|PRE|HR|BR|TABLE|CAPTION|THEAD|TBODY|TFOOT|TR|TH|TD)$/;
 
   /* Trang giấy để white-space:pre-wrap (để giữ thụt lề khi gõ lệnh), nên mọi
      ký tự xuống dòng và thụt lề nằm GIỮA CÁC THẺ của HTML nguồn đều bị hiển thị
@@ -944,7 +950,41 @@
     });
   }
 
-  const isUrl =(t) => /^(https?:\/\/|www\.)[^\s]+$/i.test(String(t || "").trim());
+  /* Bảng ở dạng chữ thuần -> <table>:
+     - chép từ Excel / Google Sheets / bảng web: các cột cách nhau bằng Tab
+     - bảng Markdown: | a | b |  (dòng |---|---| là dòng phân cách tiêu đề) */
+  function textToTable(t) {
+    const lines = String(t || "").split("\n").filter((l) => l.trim());
+    if (lines.length < 2) return null;
+    let rows, hasHead = false;
+
+    const md = lines.every((l) => /^\s*\|.*\|\s*$/.test(l));
+    if (md) {
+      rows = lines.map((l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()));
+      const sepIdx = rows.findIndex((r) => r.every((c) => /^:?-{2,}:?$/.test(c)));
+      if (sepIdx === 1) { hasHead = true; rows.splice(1, 1); }
+      else if (sepIdx !== -1) return null;
+    } else if (lines.every((l) => l.indexOf("\t") !== -1)) {
+      rows = lines.map((l) => l.split("\t"));
+      // code thụt lề bằng Tab cũng có Tab ở mọi dòng -> chỉ coi là bảng khi
+      // các dòng cùng số cột và cột đầu không trống hết
+      if (rows.some((r) => r.length !== rows[0].length)) return null;
+      if (rows.every((r) => !r[0].trim())) return null;
+    } else {
+      return null;
+    }
+
+    const cols = Math.max.apply(null, rows.map((r) => r.length));
+    if (cols < 2) return null;
+    const cell = (tag, v) => "<" + tag + ">" + esc(v || "") + "</" + tag + ">";
+    const tr = (r, tag) => "<tr>" + Array.from({ length: cols }, (_, i) => cell(tag, r[i])).join("") + "</tr>";
+    let out = "<table>";
+    if (hasHead) out += "<thead>" + tr(rows.shift(), "th") + "</thead>";
+    out += "<tbody>" + rows.map((r) => tr(r, "td")).join("") + "</tbody></table>";
+    return out;
+  }
+
+  const isUrl = (t) => /^(https?:\/\/|www\.)[^\s]+$/i.test(String(t || "").trim());
   const toHref = (t) => {
     const v = String(t).trim();
     return /^(https?:|mailto:)/i.test(v) ? v : "https://" + v;
@@ -958,7 +998,7 @@
   }
 
   const looksLikeHtml = (t) =>
-    /<(br|div|p|span|b|i|u|s|ul|ol|li|pre|code|h[1-3]|font|strong|em|a|hr|blockquote|img)\b[^>]*>/i.test(t || "");
+    /<(br|div|p|span|b|i|u|s|ul|ol|li|pre|code|h[1-3]|font|strong|em|a|hr|blockquote|img|table)\b[^>]*>/i.test(t || "");
 
   function plainToHtml(t) {
     return esc(t || "").replace(/\n/g, "<br>");
@@ -1436,8 +1476,12 @@
         return;
       }
 
-      let payload;
-      if (looksLikeDiagram(plain)) {
+      let payload, table;
+      if (html && /<table[\s>]/i.test(html)) {
+        payload = tidyPaste(stripColors(sanitizeHtml(keepSourceLineBreaks(html)))) + "<div><br></div>";
+      } else if ((table = textToTable(plain))) {
+        payload = table + "<div><br></div>";
+      } else if (looksLikeDiagram(plain)) {
         payload = "<pre>" + esc(plain.replace(/^\n+/, "")) + "</pre><div><br></div>";
       } else if (html) {
         payload = tidyPaste(stripColors(sanitizeHtml(keepSourceLineBreaks(html))));
