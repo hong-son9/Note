@@ -734,7 +734,8 @@
     A: ["href", "target", "rel"], B: [], STRONG: [], I: [], EM: [], U: [], S: [], STRIKE: [],
     SPAN: ["style"], DIV: ["style"], P: ["style"], BR: [], HR: [],
     UL: [], OL: [], LI: ["style"], PRE: ["style"], CODE: [], BLOCKQUOTE: [],
-    H1: ["style"], H2: ["style"], H3: ["style"], FONT: ["color", "size", "face"]
+    H1: ["style"], H2: ["style"], H3: ["style"], FONT: ["color", "size", "face"],
+    IMG: ["src", "alt"]
   };
   /* Cố tình KHÔNG có "background-color": công cụ tô nền đã bỏ, mà chữ có nền
      thì gõ tiếp ngay sau nó sẽ bị ăn theo cái nền đó. Loại hẳn ở khâu lọc thì
@@ -777,6 +778,10 @@
           if (!/^(https?:|mailto:|#)/i.test(href)) child.removeAttribute("href");
           child.setAttribute("target", "_blank");
           child.setAttribute("rel", "noopener noreferrer");
+        }
+        if (tag === "IMG") {
+          const src = child.getAttribute("src") || "";
+          if (!/^(https:\/\/|data:image\/(png|jpeg|gif|webp);base64,)/i.test(src)) { child.remove(); return; }
         }
         walk(child);
       });
@@ -876,7 +881,70 @@
     return box.innerHTML;
   }
 
-  const isUrl = (t) => /^(https?:\/\/|www\.)[^\s]+$/i.test(String(t || "").trim());
+  /* Nhiều nơi (VS Code, Notion, trình soạn code trên web…) không dùng <pre> mà
+     đặt white-space:pre ngay trên thẻ. Bộ lọc bỏ style đó đi, rồi collapseWs coi
+     các ký tự xuống dòng bên trong là khoảng trắng thừa -> sơ đồ bị dồn thành một
+     dòng. Đổi các ký tự xuống dòng đó thành <br> TRƯỚC khi lọc. */
+  function keepSourceLineBreaks(html) {
+    const box = document.createElement("div");
+    box.innerHTML = html;
+    box.querySelectorAll("[style*='white-space']").forEach((el) => {
+      if (!/^(pre|pre-wrap|pre-line|break-spaces)$/.test(el.style.whiteSpace)) return;
+      if (el.closest("pre")) return;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+      const nodes = [];
+      let n;
+      while ((n = walker.nextNode())) if (/\r?\n/.test(n.nodeValue)) nodes.push(n);
+      nodes.forEach((t) => {
+        const frag = document.createDocumentFragment();
+        t.nodeValue.split(/\r?\n/).forEach((part, i) => {
+          if (i) frag.appendChild(document.createElement("br"));
+          if (part) frag.appendChild(document.createTextNode(part));
+        });
+        t.parentNode.replaceChild(frag, t);
+      });
+    });
+    return box.innerHTML;
+  }
+
+  /* Sơ đồ vẽ bằng ký tự (┌─┐ │ └─┘, +---+, mũi tên…): chỉ cần căn đúng từng cột.
+     HTML nguồn hay làm lệch (font, thẻ bọc, khoảng trắng), còn bản chữ thuần thì
+     luôn đúng -> dán bản chữ thuần vào một khối <pre>. */
+  function looksLikeDiagram(t) {
+    const lines = String(t || "").split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) return false;
+    const boxy = lines.filter((l) =>
+      /[─-▟←-⇿■-◿]/.test(l) ||   // ký tự khung, mũi tên, khối
+      /^\s*[+|].*[-=+|]\s*$/.test(l) ||                       // +----+ | ... |
+      /(--+>|<--+|==+>|\|\s{2,}\|)/.test(l)                   // --> <-- ==>  |   |
+    ).length;
+    return boxy >= 2 && boxy / lines.length >= 0.3;
+  }
+
+  /* Dán ảnh (ảnh chụp màn hình, hình vẽ…): thu nhỏ rồi nhúng thẳng vào ghi chú
+     dưới dạng data URL để khỏi cần chỗ lưu file riêng. */
+  const IMG_MAX_SIDE = 1600;
+  function imageFileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const k = Math.min(1, IMG_MAX_SIDE / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * k);
+        c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        // hình vẽ / sơ đồ nét mảnh thì PNG nét hơn; ảnh chụp lớn thì JPEG nhẹ hơn
+        const png = c.toDataURL("image/png");
+        resolve(png.length < 900000 ? png : c.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Không đọc được ảnh")); };
+      img.src = url;
+    });
+  }
+
+  const isUrl =(t) => /^(https?:\/\/|www\.)[^\s]+$/i.test(String(t || "").trim());
   const toHref = (t) => {
     const v = String(t).trim();
     return /^(https?:|mailto:)/i.test(v) ? v : "https://" + v;
@@ -890,7 +958,7 @@
   }
 
   const looksLikeHtml = (t) =>
-    /<(br|div|p|span|b|i|u|s|ul|ol|li|pre|code|h[1-3]|font|strong|em|a|hr|blockquote)\b[^>]*>/i.test(t || "");
+    /<(br|div|p|span|b|i|u|s|ul|ol|li|pre|code|h[1-3]|font|strong|em|a|hr|blockquote|img)\b[^>]*>/i.test(t || "");
 
   function plainToHtml(t) {
     return esc(t || "").replace(/\n/g, "<br>");
@@ -1343,12 +1411,85 @@
         return;
       }
 
-      const payload = html
-        ? tidyPaste(stripColors(sanitizeHtml(html)))
-        : plainToHtml(txt.replace(/\r\n/g, "\n").replace(/[ \t]*\n+$/, ""));
+      // ảnh (chụp màn hình, copy hình) mà không kèm chữ -> nhúng ảnh
+      const imgFile = Array.prototype.slice.call(dt.items || [])
+        .filter((it) => it.kind === "file" && /^image\//.test(it.type))
+        .map((it) => it.getAsFile())[0];
+      if (imgFile && !txt.trim()) {
+        imageFileToDataUrl(imgFile).then((src) => {
+          pad.focus();
+          document.execCommand("insertHTML", false, '<img src="' + src + '" alt="">');
+          onPadInput();
+        }).catch((er) => toast(er.message, "error"));
+        return;
+      }
+
+      const plain = txt.replace(/\r\n/g, "\n").replace(/[ \t]*\n+$/, "");
+
+      // đang đứng trong một khối code -> dán chữ thuần, giữ nguyên từng dấu cách
+      const sel = window.getSelection();
+      const anchor = sel && sel.anchorNode;
+      const anchorEl = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentElement);
+      if (anchorEl && anchorEl.closest("pre") && pad.contains(anchorEl)) {
+        document.execCommand("insertText", false, plain);
+        onPadInput();
+        return;
+      }
+
+      let payload;
+      if (looksLikeDiagram(plain)) {
+        payload = "<pre>" + esc(plain.replace(/^\n+/, "")) + "</pre><div><br></div>";
+      } else if (html) {
+        payload = tidyPaste(stripColors(sanitizeHtml(keepSourceLineBreaks(html))));
+      } else {
+        payload = plainToHtml(plain);
+      }
 
       document.execCommand("insertHTML", false, payload);
       markLinksExternal();
+      onPadInput();
+    });
+
+    // Bấm vào khoảng trống bên dưới nội dung: nếu dòng cuối là một khối "nhốt"
+    // con trỏ (khối code, danh sách, trích dẫn, tiêu đề, ảnh…) thì trình duyệt sẽ
+    // đặt con trỏ vào trong khối đó, không thể xuống dòng mới bên dưới.
+    // -> Thêm sẵn một dòng trống ở cuối và đặt con trỏ vào đó.
+    const TRAP_BLOCK = /^(PRE|UL|OL|BLOCKQUOTE|H1|H2|H3|HR|IMG|TABLE)$/;
+    pad.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || e.target !== pad) return;
+
+      let last = pad.lastChild;
+      while (last && last.nodeType === 3 && !last.nodeValue.trim()) last = last.previousSibling;
+      if (!last) return;
+
+      const r = document.createRange();
+      r.selectNodeContents(pad);
+      const rects = r.getClientRects();
+      const bottom = rects.length ? rects[rects.length - 1].bottom : 0;
+      if (e.clientY <= bottom) return;            // bấm cạnh chữ, không phải dưới cùng
+
+      let line = last;
+      const isEmptyLine = last.nodeType === 1 && /^(DIV|P)$/.test(last.tagName) && !last.textContent.trim() &&
+        !last.querySelector("img");
+      if (!isEmptyLine) {
+        const deepLast = last.nodeType === 1 ? last.lastElementChild || last : null;
+        const trapped = last.nodeType === 1 && (TRAP_BLOCK.test(last.tagName) ||
+          (deepLast && TRAP_BLOCK.test(deepLast.tagName)));
+        if (!trapped) return;                     // dòng chữ thường -> để trình duyệt tự đặt con trỏ
+        line = document.createElement("div");
+        line.appendChild(document.createElement("br"));
+        pad.appendChild(line);
+      }
+
+      e.preventDefault();
+      pad.focus();
+      const caret = document.createRange();
+      caret.setStart(line, 0);
+      caret.collapse(true);
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(caret);
+      line.scrollIntoView({ block: "nearest" });
       onPadInput();
     });
 
