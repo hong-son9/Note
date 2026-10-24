@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-09-11.7";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-10-24.1";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -457,8 +457,14 @@
     $("empty-state").classList.add("hidden");
     $("workspace").classList.remove("hidden");
     renderProjects();
-    $("sidebar").classList.remove("open");
+    setSidebar(false);
     await loadTabs();
+  }
+
+  /* Mobile: sidebar trượt ra đè lên nội dung, kèm nền mờ phía sau để chạm ra ngoài là đóng */
+  function setSidebar(open) {
+    $("sidebar").classList.toggle("open", open);
+    $("sidebar-backdrop").classList.toggle("show", open);
   }
 
   /* =====================================================================
@@ -1585,8 +1591,12 @@
     $("logout-btn").addEventListener("click", logout);
 
     // Sidebar
-    $("open-sidebar").addEventListener("click", () => $("sidebar").classList.add("open"));
-    $("close-sidebar").addEventListener("click", () => $("sidebar").classList.remove("open"));
+    $("open-sidebar").addEventListener("click", () => setSidebar(true));
+    $("close-sidebar").addEventListener("click", () => setSidebar(false));
+    $("sidebar-backdrop").addEventListener("click", () => setSidebar(false));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && $("sidebar").classList.contains("open")) setSidebar(false);
+    });
     $("project-search").addEventListener("input", (e) => {
       state.projectFilter = e.target.value; renderProjects();
     });

@@ -751,3 +751,96 @@ button, input, textarea, select{ font-family:inherit; font-size:14px; color:inhe
     -webkit-background-clip:text; background-clip:text; color:transparent;
   }
 }
+
+/* ---- Dòng trạng thái tài khoản: không xuống dòng lung tung ---- */
+.user-role{
+  display:flex; align-items:center; gap:6px; min-width:0;
+  white-space:nowrap; overflow:hidden;
+}
+.user-role > span:first-child{ flex:none; }
+.user-role #build-stamp{ overflow:hidden; text-overflow:ellipsis; opacity:.85; }
+.user-role #build-stamp::before{ content:"·"; margin-right:6px; color:var(--muted); }
+
+/* Nút "Thêm dự án" là .btn-block (width:100%) mà còn margin hai bên -> tràn khỏi sidebar */
+.add-project-btn{ width:auto; }
+/* Kính lúp canh giữa ô nhập, không phải giữa cả vùng đệm dưới ô (padding-bottom 12px) */
+.side-search-icon{ top:calc(50% - 6px); }
+
+.sidebar-backdrop{ display:none; }
+
+/* =====================================================================
+   MOBILE — đặt cuối file để đè lên phần hiệu ứng phía trên
+   ===================================================================== */
+@media (max-width: 900px){
+  /* 100vh trên điện thoại tính cả thanh địa chỉ -> bị che mất phần đáy */
+  .app-screen{ height:100vh; height:100dvh; }
+  /* "1fr" = minmax(auto,1fr): cột tự giãn theo nội dung dài nhất -> cả trang
+     rộng hơn màn hình, các nút bên phải bị đẩy ra ngoài */
+  .app-screen{ grid-template-columns:minmax(0,1fr); }
+  .content{ width:100%; overflow:hidden; }
+
+  /* Hiệu ứng slideInL (fill-mode both) giữ transform:none mãi mãi và đè lên
+     translateX(-100%) -> sidebar không bao giờ đóng được. Bỏ trên mobile. */
+  .sidebar{
+    animation:none;
+    width:min(300px, 86vw);
+    background:rgba(22,25,31,.97);
+    padding-bottom:env(safe-area-inset-bottom);
+    visibility:hidden;
+    transition:transform .24s cubic-bezier(.22,1,.36,1), visibility 0s .24s;
+  }
+  .sidebar.open{
+    transform:none; visibility:visible;
+    transition:transform .24s cubic-bezier(.22,1,.36,1), visibility 0s;
+  }
+  .sidebar-backdrop{
+    display:block; position:fixed; inset:0; z-index:55;
+    background:rgba(6,8,11,.55); backdrop-filter:blur(2px);
+    opacity:0; pointer-events:none; transition:opacity .24s;
+  }
+  .sidebar-backdrop.show{ opacity:1; pointer-events:auto; }
+
+  /* nút chạm tối thiểu ~40px */
+  .icon-btn{ min-width:38px; min-height:38px; }
+  #close-sidebar, #open-sidebar{ width:40px; height:40px; font-size:18px; }
+  .project-item{ padding:12px 12px; }
+
+  /* iOS tự phóng to khi gõ vào ô có chữ < 16px */
+  .sidebar-search input, #gs-input, .fmt-select, .modal input, .modal textarea{ font-size:16px; }
+
+  /* ---- Thanh trên cùng: hàng 1 = menu + tên dự án + nút; hàng 2 = tìm kiếm ---- */
+  .topbar{ flex-wrap:wrap; gap:8px 10px; padding:10px 12px; animation:none; }
+  .crumbs{ order:1; flex:1; }
+  .crumb-muted, .crumb-sep{ display:none; }
+  .crumb-strong{ font-size:15px; }
+  .topbar-actions{ order:2; gap:6px; }
+  .topbar-actions .icon-btn{ width:38px; height:38px; }
+  #open-sidebar{ order:0; }
+  .global-search{ order:3; flex:1 1 100%; width:100%; }
+  .gs-panel{ max-height:65vh; }
+
+  /* ---- Hàng tab: nút "Thêm note" chỉ còn dấu + ---- */
+  .workspace{ padding:0 10px 10px; }
+  .tabs-row{ gap:6px; padding-top:8px; }
+  .tab{ padding:9px 12px; }
+  .tab-add{ font-size:0; gap:0; padding:0; width:38px; height:38px; justify-content:center; }
+  .tab-add svg{ width:16px; height:16px; }
+  .tabs-actions .icon-btn{ width:38px; height:38px; }
+
+  /* ---- Thanh định dạng: một hàng, vuốt ngang thay vì dồn nhiều dòng ---- */
+  .pad-toolbar{
+    flex-wrap:nowrap; overflow-x:auto; margin-top:8px; padding:7px 8px;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  .pad-toolbar::-webkit-scrollbar{ display:none; }
+  .pad-toolbar > *{ flex:none; }
+  .fmt-btn, .fmt-select{ height:36px; }
+  .fmt-btn{ min-width:36px; }
+
+  .notepad{ padding:14px 12px 60px; font-size:14px; line-height:1.65; }
+
+  .toast-wrap{ left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); }
+  .toast{ min-width:0; max-width:none; }
+  .modal-backdrop{ padding:12px; align-items:end; }
+  .modal{ max-height:85dvh; }
+}
