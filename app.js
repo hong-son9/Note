@@ -6,7 +6,7 @@
   "use strict";
 
   /* ---------------- Khởi tạo Supabase ---------------- */
-  const BUILD = "2026-10-24.1";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
+  const BUILD = "2026-10-25.1";   // đổi mỗi lần sửa -> soi ngay được là đã deploy bản mới chưa
 
   const CFG = window.APP_CONFIG || {};
   const configured =
@@ -766,21 +766,30 @@
     else el.removeAttribute("style");
   }
 
-  function sanitizeHtml(html) {
-    const box = document.createElement("div");
-    box.innerHTML = html;
+  /* Mọi HTML lạ (dán vào, đọc từ DB) đều parse trong một document "trơ": không
+     gắn với trang nên không tải ảnh, không chạy script. Parse bằng div của chính
+     trang thì <img src=x onerror=…> chạy JS ngay lúc đang lọc, trước khi kịp xoá. */
+  const inertDoc = document.implementation.createHTMLDocument("");
+  function parseInert(html) {
+    const box = inertDoc.createElement("div");
+    box.innerHTML = html || "";
+    return box;
+  }
+
+  function unwrap(el) {
+    const parent = el.parentNode;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    el.remove();
+  }
+
+  function sanitizeNode(root) {
     const walk = (node) => {
       Array.prototype.slice.call(node.childNodes).forEach((child) => {
         if (child.nodeType === 3) return;                       // text
         if (child.nodeType !== 1) { child.remove(); return; }   // comment…
         const tag = child.tagName;
         if (DROP_TAGS.test(tag)) { child.remove(); return; }
-        if (!ALLOWED_TAGS[tag]) {                               // thẻ lạ -> bóc vỏ, giữ ruột
-          const parent = child.parentNode;
-          while (child.firstChild) parent.insertBefore(child.firstChild, child);
-          child.remove();
-          return;
-        }
+        if (!ALLOWED_TAGS[tag]) { unwrap(child); return; }      // thẻ lạ -> bóc vỏ, giữ ruột
         Array.prototype.slice.call(child.attributes).forEach((at) => {
           if (ALLOWED_TAGS[tag].indexOf(at.name) === -1) child.removeAttribute(at.name);
         });
@@ -798,21 +807,23 @@
         walk(child);
       });
     };
-    walk(box);
+    walk(root);
+  }
+
+  function sanitizeHtml(html) {
+    const box = parseInert(html);
+    sanitizeNode(box);
     return box.innerHTML;
   }
 
   /* Dán từ nơi khác: bỏ màu chữ / màu nền của nguồn, giữ chữ dễ đọc trên nền tối */
-  function stripColors(html) {
-    const box = document.createElement("div");
-    box.innerHTML = html;
+  function stripColors(box) {
     box.querySelectorAll("[style]").forEach((el) => {
       el.style.removeProperty("color");
       el.style.removeProperty("background-color");
       if (!el.getAttribute("style")) el.removeAttribute("style");
     });
     box.querySelectorAll("font[color]").forEach((el) => el.removeAttribute("color"));
-    return box.innerHTML;
   }
 
   const BLOCK_TAG = /^(DIV|P|UL|OL|LI|H1|H2|H3|BLOCKQUOTE|PRE|HR|BR|TABLE|CAPTION|THEAD|TBODY|TFOOT|TR|TH|TD)$/;
@@ -822,7 +833,7 @@
      thành khoảng trắng thật -> dán danh sách vào là thừa dòng, dấu chấm đầu dòng
      rời khỏi chữ. Dọn sạch khoảng trắng vô nghĩa đó, trừ bên trong <pre>. */
   function collapseWs(root) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     const drop = [];
     let node;
     while ((node = walker.nextNode())) {
@@ -855,10 +866,7 @@
 
   /* Dán hay bị thừa một dòng trống: nguồn copy thường kèm ký tự xuống dòng ở cuối,
      hoặc bọc cả đoạn trong một thẻ khối. Gỡ cả hai trước khi chèn. */
-  function tidyPaste(html) {
-    const box = document.createElement("div");
-    box.innerHTML = html;
-
+  function tidyPaste(box) {
     collapseWs(box);
 
     // <li><div>chữ</div></li> -> <li>chữ</li>, tránh thẻ khối lồng trong mục danh sách
@@ -868,7 +876,7 @@
         li.firstChild.nodeType === 1 &&
         /^(DIV|P)$/.test(li.firstChild.tagName)
       ) {
-        li.innerHTML = li.firstChild.innerHTML;
+        unwrap(li.firstChild);
       }
     });
 
@@ -879,7 +887,7 @@
       /^(DIV|P)$/.test(box.firstChild.tagName) &&
       !box.firstChild.getAttribute("style")
     ) {
-      box.innerHTML = box.firstChild.innerHTML;
+      unwrap(box.firstChild);
     }
 
     // cắt <br> và khối rỗng ở cuối
@@ -890,32 +898,40 @@
       if (n.nodeType === 1 && /^(DIV|P)$/.test(n.tagName) && !n.textContent.trim()) { n.remove(); continue; }
       break;
     }
-    return box.innerHTML;
   }
 
   /* Nhiều nơi (VS Code, Notion, trình soạn code trên web…) không dùng <pre> mà
      đặt white-space:pre ngay trên thẻ. Bộ lọc bỏ style đó đi, rồi collapseWs coi
      các ký tự xuống dòng bên trong là khoảng trắng thừa -> sơ đồ bị dồn thành một
      dòng. Đổi các ký tự xuống dòng đó thành <br> TRƯỚC khi lọc. */
-  function keepSourceLineBreaks(html) {
-    const box = document.createElement("div");
-    box.innerHTML = html;
+  function keepSourceLineBreaks(box) {
+    const doc = box.ownerDocument;
     box.querySelectorAll("[style*='white-space']").forEach((el) => {
       if (!/^(pre|pre-wrap|pre-line|break-spaces)$/.test(el.style.whiteSpace)) return;
       if (el.closest("pre")) return;
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+      const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
       const nodes = [];
       let n;
       while ((n = walker.nextNode())) if (/\r?\n/.test(n.nodeValue)) nodes.push(n);
       nodes.forEach((t) => {
-        const frag = document.createDocumentFragment();
+        const frag = doc.createDocumentFragment();
         t.nodeValue.split(/\r?\n/).forEach((part, i) => {
-          if (i) frag.appendChild(document.createElement("br"));
-          if (part) frag.appendChild(document.createTextNode(part));
+          if (i) frag.appendChild(doc.createElement("br"));
+          if (part) frag.appendChild(doc.createTextNode(part));
         });
         t.parentNode.replaceChild(frag, t);
       });
     });
+  }
+
+  /* HTML dán vào: parse MỘT lần rồi chạy hết các bước trên cùng một cây DOM
+     (trước đây mỗi bước parse + serialize lại từ đầu, dữ liệu lớn chậm gấp ~4 lần). */
+  function cleanPaste(html) {
+    const box = parseInert(html);
+    keepSourceLineBreaks(box);
+    sanitizeNode(box);
+    stripColors(box);
+    tidyPaste(box);
     return box.innerHTML;
   }
 
@@ -990,6 +1006,41 @@
     return out;
   }
 
+  /* execCommand("insertHTML") chậm theo bình phương kích thước (đo: 3MB ~4.6s,
+     6MB ~17s, trang đứng hình). Chèn thẳng bằng Range thì tuyến tính (6MB ~3.7s).
+     Đổi lại Ctrl+Z không hoàn tác được lần dán lớn đó, nên chỉ dùng khi vượt ngưỡng. */
+  const FAST_INSERT_LIMIT = 150000;   // ký tự
+  const BIG_PASTE = 300000;           // ký tự: từ mức này báo "Đang dán…" trước
+
+  function insertFast(pad, html, text) {
+    const sel = window.getSelection();
+    let range = sel.rangeCount ? sel.getRangeAt(0) : null;
+    if (!range || !pad.contains(range.commonAncestorContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(pad);
+      range.collapse(false);
+    }
+    range.deleteContents();
+
+    let frag;
+    if (html != null) {
+      const tpl = document.createElement("template");   // template: parse trơ, không tải gì
+      tpl.innerHTML = html;
+      frag = tpl.content;
+    } else {
+      frag = document.createDocumentFragment();
+      frag.appendChild(document.createTextNode(text));
+    }
+    const last = frag.lastChild;
+    range.insertNode(frag);
+    if (last) {
+      range.setStartAfter(last);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
   const isUrl = (t) => /^(https?:\/\/|www\.)[^\s]+$/i.test(String(t || "").trim());
   const toHref = (t) => {
     const v = String(t).trim();
@@ -1011,9 +1062,7 @@
   }
 
   function htmlToText(html) {
-    const box = document.createElement("div");
-    box.innerHTML = html || "";
-    return box.textContent || "";
+    return parseInert(html).textContent || "";
   }
 
   /* ---------- Tải & hiển thị ---------- */
@@ -1067,11 +1116,11 @@
     else { el.textContent = "✓ Đã lưu" + (extra ? " lúc " + extra : ""); el.className = "save-status saved"; }
   }
 
+  /* Gọi ở MỖI phím gõ -> không được đọc innerHTML ở đây (note vài MB thì mỗi lần
+     đọc tốn hàng chục ms, gõ bị giật). Chỉ đánh dấu, lúc lưu mới so với bản đã lưu. */
   function onPadInput() {
-    state.doc.html = $("notepad").innerHTML;
-    state.dirty = state.doc.html !== state.doc.saved;
-    if (!state.dirty) return;
-    setStatus("dirty");
+    if (!state.dirty) setStatus("dirty");
+    state.dirty = true;
     clearTimeout(state.saveTimer);
     state.saveTimer = setTimeout(savePad, AUTOSAVE_MS);
   }
@@ -1085,6 +1134,11 @@
     // Phải so mốc "đã lưu" với raw, không phải với html — nếu không bộ lọc chuẩn hoá
     // lại thẻ một chút là lần nào cũng bị coi như còn thay đổi.
     const raw = $("notepad").innerHTML;
+    if (raw === state.doc.saved) {               // gõ rồi xoá / hoàn tác về đúng bản đã lưu
+      state.dirty = false;
+      setStatus("saved");
+      return;
+    }
     const html = sanitizeHtml(raw);
     const tabId = state.tabId;
     const ids = state.doc.ids.slice();
@@ -1476,28 +1530,52 @@
       const sel = window.getSelection();
       const anchor = sel && sel.anchorNode;
       const anchorEl = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentElement);
-      if (anchorEl && anchorEl.closest("pre") && pad.contains(anchorEl)) {
-        document.execCommand("insertText", false, plain);
+      const inPre = !!(anchorEl && anchorEl.closest("pre") && pad.contains(anchorEl));
+
+      const run = () => {
+        if (inPre) {
+          if (plain.length < FAST_INSERT_LIMIT) document.execCommand("insertText", false, plain);
+          else insertFast(pad, null, plain);
+          onPadInput();
+          return;
+        }
+
+        let payload, table;
+        if (html && /<table[\s>]/i.test(html)) {
+          payload = cleanPaste(html) + "<div><br></div>";
+        } else if ((table = textToTable(plain))) {
+          payload = table + "<div><br></div>";
+        } else if (looksLikeDiagram(plain)) {
+          payload = "<pre>" + esc(plain.replace(/^\n+/, "")) + "</pre><div><br></div>";
+        } else if (html) {
+          payload = cleanPaste(html);
+        } else if (plain.length >= FAST_INSERT_LIMIT) {
+          // log / JSON rất dài: chèn thẳng một text node (trang giấy để pre-wrap nên
+          // vẫn giữ xuống dòng), nhanh hơn nhiều so với tách thành hàng nghìn <br>
+          insertFast(pad, null, plain);
+          onPadInput();
+          return;
+        } else {
+          payload = plainToHtml(plain);
+        }
+
+        if (payload.length < FAST_INSERT_LIMIT) document.execCommand("insertHTML", false, payload);
+        else insertFast(pad, payload);
+        markLinksExternal();
         onPadInput();
-        return;
-      }
+      };
 
-      let payload, table;
-      if (html && /<table[\s>]/i.test(html)) {
-        payload = tidyPaste(stripColors(sanitizeHtml(keepSourceLineBreaks(html)))) + "<div><br></div>";
-      } else if ((table = textToTable(plain))) {
-        payload = table + "<div><br></div>";
-      } else if (looksLikeDiagram(plain)) {
-        payload = "<pre>" + esc(plain.replace(/^\n+/, "")) + "</pre><div><br></div>";
-      } else if (html) {
-        payload = tidyPaste(stripColors(sanitizeHtml(keepSourceLineBreaks(html))));
-      } else {
-        payload = plainToHtml(plain);
-      }
-
-      document.execCommand("insertHTML", false, payload);
-      markLinksExternal();
-      onPadInput();
+      // Dữ liệu lớn: báo trước rồi mới xử lý, để trình duyệt kịp vẽ thông báo
+      // thay vì đứng hình không rõ lý do
+      if (html.length + txt.length < BIG_PASTE) { run(); return; }
+      toast("Đang dán " + Math.round((html.length || txt.length) / 1024) + " KB…", "info");
+      setTimeout(() => {
+        const t0 = performance.now();
+        run();
+        if (performance.now() - t0 > 1500) {
+          toast("Đã dán xong. Note lớn sẽ lưu và cuộn chậm hơn — nên tách bớt sang note khác.", "info");
+        }
+      }, 50);
     });
 
     // Bấm vào khoảng trống bên dưới nội dung: nếu dòng cuối là một khối "nhốt"
