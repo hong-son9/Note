@@ -357,6 +357,16 @@
     return true;
   }
 
+  /* Chỉ mục MỚI xuất hiện mới chạy hiệu ứng bay vào — render lại vì lưu,
+     đổi tên… thì không nhảy lại cả danh sách. */
+  const seenProjects = new Set();
+  const seenTabs = new Set();
+  function isFresh(seen, id) {
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }
+
   function renderProjects() {
     const q = state.projectFilter.toLowerCase();
     const list = state.projects.filter((p) => !q || p.name.toLowerCase().includes(q));
@@ -370,11 +380,14 @@
       return;
     }
 
+    let nth = 0;
     $("project-list").innerHTML = list
       .map((p) => {
         const color = DOT_COLORS[hashIdx(p.id, DOT_COLORS.length)];
+        const fresh = isFresh(seenProjects, p.id);
         return (
           '<button class="project-item' + (p.id === state.projectId ? " active" : "") +
+          (fresh ? ' enter" style="--i:' + (nth++) : "") +
           '" data-project="' + esc(p.id) + '">' +
           '<span class="project-dot" style="background:' + color + '"></span>' +
           '<span class="project-name">' + esc(p.name) + "</span>" +
@@ -499,13 +512,16 @@
         "Chưa có note nào — bấm “+ Thêm note” để tạo (VD: Cách chạy dự án, Bảng cần nhớ, Ticket tìm hiểu…)</div>";
       return;
     }
+    let nth = 0;
     $("note-tabs").innerHTML = '<span class="tab-ind" id="tab-ind"></span>' + state.tabs
       .map((t) => {
+        const fresh = isFresh(seenTabs, t.id);
         const filled = state.items.some(
           (i) => i.tab_id === t.id && (i.content || "").trim()
         );
         return (
           '<button class="tab' + (t.id === state.tabId ? " active" : "") +
+          (fresh ? ' enter" style="--i:' + (nth++) : "") +
           '" draggable="true" title="Kéo để đổi thứ tự" data-tab="' + esc(t.id) + '">' +
           '<span class="tab-grip">⠿</span>' +
           '<span class="tab-dot' + (filled ? " filled" : "") + '"></span>' +
@@ -1106,6 +1122,10 @@
     state.dirty = false;
     setStatus(htmlToText(norm).trim() ? "saved" : "");
     restoreScroll();
+    // Chuyển note: nội dung trượt lên rõ dần (bỏ class, ép reflow, gắn lại để chạy lại)
+    pad.classList.remove("pad-swap");
+    void pad.offsetWidth;
+    pad.classList.add("pad-swap");
   }
 
   function setStatus(kind, extra) {
@@ -1139,7 +1159,7 @@
       setStatus("saved");
       return;
     }
-    const html = sanitizeHtml(raw);
+    const html = sanitizeHtml(raw).replace(/​/g, "");   // bỏ "chỗ đứng" của con trỏ
     const tabId = state.tabId;
     const ids = state.doc.ids.slice();
     const payload = { title: firstLine(htmlToText(html)) || "(trống)", content: html };
@@ -1431,6 +1451,83 @@
     onPadInput();
   }
 
+  /* ---------- Màu chữ ----------
+     Bảng màu chọn sẵn cho nền tối: màu nào cũng đủ sáng để đọc được trên trang
+     giấy, không cho chọn màu tự do (dễ ra chữ tối lẫn vào nền). */
+  const TEXT_COLORS = [
+    ["", "Mặc định"],
+    ["#f47b89", "Đỏ"], ["#f5a35c", "Cam"], ["#f5d76e", "Vàng"],
+    ["#5ed9a6", "Xanh lá"], ["#4fd1c5", "Xanh ngọc"], ["#6cb6ff", "Xanh dương"],
+    ["#a78bfa", "Tím"], ["#f472b6", "Hồng"], ["#8a94a3", "Xám"]
+  ];
+  const COLOR_KEY = "devnotes:textColor";
+  /* "Mặc định" = gỡ màu. execCommand không có lệnh gỡ riêng màu chữ -> tô bằng
+     một màu cờ rồi bóc các span mang màu cờ đó (giống mẹo cỡ chữ ở trên). */
+  const COLOR_FLAG = "rgb(1, 2, 3)";
+  let lastColor = "#f47b89";
+  try {
+    const c = localStorage.getItem(COLOR_KEY);
+    if (c && TEXT_COLORS.some((t) => t[0] === c)) lastColor = c;
+  } catch (e) {}
+
+  function paintColorBar() {
+    const bar = $("color-bar");
+    if (bar) bar.style.background = lastColor;
+  }
+
+  function applyTextColor(color) {
+    focusPad();
+    const sel = window.getSelection();
+    if (!color && (!sel.rangeCount || sel.isCollapsed)) {
+      toast("Bôi đen phần chữ cần bỏ màu trước", "error");
+      return;
+    }
+    try { document.execCommand("styleWithCSS", false, true); } catch (e) {}
+    document.execCommand("foreColor", false, color || "#010203");
+    if (!color) {
+      const pad = $("notepad");
+      pad.querySelectorAll("[style]").forEach((el) => {
+        if (el.style.color !== COLOR_FLAG) return;
+        el.style.removeProperty("color");
+        if (!el.getAttribute("style").trim()) el.removeAttribute("style");
+        if (el.tagName === "SPAN" && !el.attributes.length) unwrap(el);
+      });
+      pad.querySelectorAll("font[color]").forEach((f) => {
+        if (f.getAttribute("color").toLowerCase() === "#010203") unwrap(f);
+      });
+      pad.querySelectorAll('[style=""]').forEach((el) => el.removeAttribute("style"));
+    }
+    if (color) {                 // nút A luôn tô màu thật, "Mặc định" không thay màu nhớ
+      lastColor = color;
+      try { localStorage.setItem(COLOR_KEY, color); } catch (e) {}
+      paintColorBar();
+    }
+    rememberSel();
+    onPadInput();
+  }
+
+  function buildColorPop() {
+    const pop = $("color-pop");
+    pop.innerHTML = TEXT_COLORS.map((t) =>
+      '<button type="button" class="color-swatch' + (t[0] ? "" : " none") + '" data-color="' + t[0] +
+      '" title="' + t[1] + '" style="' + (t[0] ? "--sw:" + t[0] : "") + '"></button>'
+    ).join("");
+  }
+
+  function toggleColorPop(anchor, force) {
+    const pop = $("color-pop");
+    const open = force !== undefined ? force : pop.classList.contains("hidden");
+    if (!open) { pop.classList.add("hidden"); return; }
+    pop.querySelectorAll(".color-swatch").forEach((s) =>
+      s.classList.toggle("active", s.dataset.color === lastColor));
+    pop.classList.remove("hidden");
+    const r = anchor.getBoundingClientRect();
+    const w = pop.offsetWidth;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    pop.style.left = left + "px";
+    pop.style.top = (r.bottom + 6) + "px";
+  }
+
   /* Chèn liên kết: bôi đen chữ rồi bấm, hoặc không bôi gì thì nhập cả chữ hiển thị */
   function insertLink() {
     const sel = String(window.getSelection() || "").trim();
@@ -1463,18 +1560,175 @@
   }
 
   function syncToolbar() {
-    const b = document.querySelector('.fmt-btn[data-cmd="bold"]');
-    if (!b) return;
-    let on = false;
-    try { on = document.queryCommandState("bold"); } catch (e) {}
-    b.classList.toggle("active", on);
+    document.querySelectorAll(".fmt-btn[data-cmd]").forEach((b) => {
+      let on = false;
+      try { on = document.queryCommandState(b.dataset.cmd); } catch (e) {}
+      b.classList.toggle("active", on);
+    });
+  }
+
+  /* ---------- Thoát khỏi ô code / liên kết bằng phím mũi tên ----------
+     Con trỏ ở cuối <code> hay <a> thì gõ tiếp vẫn bị dính vào trong. Bấm → ở
+     cuối (hoặc ← ở đầu) thì đặt con trỏ ra ngoài. Ranh giới giữa hai thẻ không
+     có chỗ đứng riêng cho con trỏ, nên chèn một ký tự rỗng (ZWSP) làm "chỗ đứng";
+     ký tự này tự biến mất khi gõ chữ vào, và bị lọc bỏ khi lưu. */
+  const ZWSP = "​";
+  const INLINE_TRAP = "code, a";
+
+  function escapeInline(right) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) return false;
+    let n = sel.anchorNode;
+    if (n && n.nodeType === 3) n = n.parentNode;
+    const el = n && n.closest ? n.closest(INLINE_TRAP) : null;
+    if (!el || !$("notepad").contains(el) || el.closest("pre")) return false;
+
+    // Con trỏ phải đang ở sát mép (chỉ còn ký tự rỗng giữa con trỏ và mép)
+    const probe = document.createRange();
+    probe.selectNodeContents(el);
+    if (right) probe.setStart(sel.anchorNode, sel.anchorOffset);
+    else probe.setEnd(sel.anchorNode, sel.anchorOffset);
+    if (probe.toString().replace(/​/g, "")) return false;
+
+    let t, off;
+    if (right) {
+      const next = el.nextSibling;
+      if (next && next.nodeType === 3) {
+        if (next.nodeValue[0] !== ZWSP) next.insertData(0, ZWSP);
+        t = next;
+      } else {
+        t = document.createTextNode(ZWSP);
+        el.parentNode.insertBefore(t, next);
+      }
+      off = 1;                                       // ngay sau ZWSP
+    } else {
+      const prev = el.previousSibling;
+      if (prev && prev.nodeType === 3) {
+        if (prev.nodeValue.slice(-1) !== ZWSP) prev.appendData(ZWSP);
+        t = prev;
+      } else {
+        t = document.createTextNode(ZWSP);
+        el.parentNode.insertBefore(t, el);
+      }
+      off = t.nodeValue.length - 1;                  // ngay trước ZWSP
+    }
+    const r = document.createRange();
+    r.setStart(t, off);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    rememberSel();
+    return true;
+  }
+
+  /* Gõ chữ vào ô đang có ZWSP thì bỏ ZWSP đi, giữ nguyên vị trí con trỏ */
+  function dropZwsp() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) return;
+    const t = sel.anchorNode;
+    if (!t || t.nodeType !== 3 || t.nodeValue.indexOf(ZWSP) === -1 || t.nodeValue.length < 2) return;
+    const off = sel.anchorOffset;
+    const before = t.nodeValue.slice(0, off).split(ZWSP).length - 1;
+    t.nodeValue = t.nodeValue.replace(/​/g, "");
+    sel.collapse(t, off - before);
+  }
+
+  /* ---------- Danh sách kiểu Word ---------- */
+  function caretLi() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    let n = sel.anchorNode;
+    if (n && n.nodeType === 3) n = n.parentNode;
+    const li = n && n.closest ? n.closest("li") : null;
+    return li && $("notepad").contains(li) ? li : null;
+  }
+
+  /* Tab / Shift+Tab trong danh sách: thụt vào / lùi ra một cấp.
+     Lùi ra khỏi cấp ngoài cùng thì dòng đó thành chữ thường, như Word. */
+  function listIndent(out) {
+    focusPad();
+    if (!caretLi()) return false;
+    // indent/outdent kiểu CSS sẽ ra margin chứ không lồng danh sách -> tắt styleWithCSS
+    try { document.execCommand("styleWithCSS", false, false); } catch (e) {}
+    document.execCommand(out ? "outdent" : "indent", false, null);
+    rememberSel();
+    onPadInput();
+    syncToolbar();
+    return true;
+  }
+
+  /* Gõ "1. " / "1) " / "- " / "* " ở đầu dòng -> tự thành danh sách.
+     Trả về true nếu đã đổi (khi đó không chèn dấu cách nữa). */
+  const AUTO_LIST = { "1.": "insertOrderedList", "1)": "insertOrderedList",
+                      "-": "insertUnorderedList", "*": "insertUnorderedList" };
+  function autoList() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || !sel.isCollapsed) return false;
+    const node = sel.anchorNode, off = sel.anchorOffset;
+    if (!node || node.nodeType !== 3) return false;
+    const marker = node.nodeValue.slice(0, off).replace(/^[\s ]+/, "");
+    const cmd = AUTO_LIST[marker];
+    if (!cmd || caretLi()) return false;
+    // Phải là đầu dòng: không có gì đứng trước trong cùng dòng
+    const prev = node.previousSibling;
+    if (prev && prev.nodeName !== "BR" && !/^(DIV|P)$/.test(prev.nodeName)) return false;
+    const parent = node.parentNode;
+    if (parent !== $("notepad") && !/^(DIV|P)$/.test(parent.nodeName)) return false;
+
+    const r = document.createRange();
+    r.setStart(node, 0);
+    r.setEnd(node, off);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    document.execCommand("delete", false, null);       // xoá "1." -> Ctrl+Z vẫn hoàn tác được
+    try { document.execCommand("styleWithCSS", false, false); } catch (e) {}
+    document.execCommand(cmd, false, null);
+    rememberSel();
+    onPadInput();
+    syncToolbar();
+    return true;
+  }
+
+  /* ---------- Hiệu ứng sống động ---------- */
+  const RIPPLE_ON = ".btn, .fmt-btn, .icon-btn, .project-item, .color-swatch";
+  function initEffects() {
+    const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (calm) return;
+
+    // Gợn sóng lan ra từ đúng điểm bấm
+    document.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      const el = e.target.closest(RIPPLE_ON);
+      if (!el || el.disabled) return;
+      const r = el.getBoundingClientRect();
+      const size = Math.max(r.width, r.height) * 2.2;
+      const dot = document.createElement("span");
+      dot.className = "ripple";
+      dot.style.width = dot.style.height = size + "px";
+      dot.style.left = (e.clientX - r.left - size / 2) + "px";
+      dot.style.top = (e.clientY - r.top - size / 2) + "px";
+      el.appendChild(dot);
+      dot.addEventListener("animationend", () => dot.remove());
+    });
+
+    // Đèn rọi theo con trỏ trên dự án và tab
+    const spot = (e) => {
+      const el = e.target.closest(".project-item, .tab");
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", (e.clientX - r.left) + "px");
+      el.style.setProperty("--my", (e.clientY - r.top) + "px");
+    };
+    $("project-list").addEventListener("pointermove", spot);
+    $("note-tabs").addEventListener("pointermove", spot);
   }
 
   function bindEditor() {
+    initEffects();
     const pad = $("notepad");
     const bar = $("fmt-bar");
 
-    pad.addEventListener("input", onPadInput);
+    pad.addEventListener("input", () => { dropZwsp(); onPadInput(); });
 
     let scrollSaveTimer = null;
     pad.addEventListener("scroll", () => {
@@ -1489,8 +1743,17 @@
     pad.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); savePad(true); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "l") { e.preventDefault(); insertLink(); return; }
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.shiftKey && e.code === "KeyX") { e.preventDefault(); exec("strikeThrough"); return; }
+      if (mod && e.shiftKey && e.code === "Digit8") { e.preventDefault(); exec("insertUnorderedList"); return; }
+      if (mod && e.shiftKey && e.code === "Digit7") { e.preventDefault(); exec("insertOrderedList"); return; }
+      if (e.key === " " && !mod && !e.altKey && autoList()) { e.preventDefault(); return; }
+      if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !mod && !e.shiftKey && !e.altKey &&
+          escapeInline(e.key === "ArrowRight")) { e.preventDefault(); return; }
       if (e.key === "Tab") {
         e.preventDefault();
+        if (listIndent(e.shiftKey)) return;            // trong danh sách: đổi cấp
+        if (e.shiftKey) return;
         document.execCommand("insertHTML", false, "&nbsp;&nbsp;");
         onPadInput();
       }
@@ -1639,6 +1902,8 @@
       if (!b) return;
       if (b.dataset.cmd) { exec(b.dataset.cmd); return; }
       if (b.dataset.act === "link") insertLink();
+      else if (b.dataset.act === "color") { toggleColorPop(b, false); applyTextColor(lastColor); }
+      else if (b.dataset.act === "color-menu") toggleColorPop(b.closest(".color-split"));
       else if (b.dataset.act === "clear") {
         exec("unlink");          // removeFormat không gỡ được thẻ <a>
         exec("removeFormat");
@@ -1646,10 +1911,28 @@
       }
     });
 
-    $("fmt-block").addEventListener("change", (e) => {
-      exec("formatBlock", e.target.value);
-      e.target.selectedIndex = 0;
+    // Bảng màu chữ
+    buildColorPop();
+    paintColorBar();
+    const pop = $("color-pop");
+    pop.addEventListener("mousedown", (e) => e.preventDefault());   // giữ vùng bôi đen
+    pop.addEventListener("click", (e) => {
+      const s = e.target.closest(".color-swatch");
+      if (!s) return;
+      toggleColorPop(null, false);
+      applyTextColor(s.dataset.color);
     });
+    document.addEventListener("mousedown", (e) => {
+      if (pop.classList.contains("hidden")) return;
+      if (pop.contains(e.target) || e.target.closest(".color-more")) return;
+      toggleColorPop(null, false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !pop.classList.contains("hidden")) toggleColorPop(null, false);
+    });
+    window.addEventListener("resize", () => toggleColorPop(null, false));
+    bar.addEventListener("scroll", () => toggleColorPop(null, false));
+
     $("fmt-size").addEventListener("change", (e) => {
       if (e.target.value) applyFontSize(e.target.value);
       e.target.selectedIndex = 0;

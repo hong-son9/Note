@@ -113,9 +113,10 @@ Mỗi note (tab) là **một trang giấy duy nhất**, luôn ở chế độ g�
 
 | Nhóm | Có gì |
 |---|---|
-| Kiểu đoạn | Văn bản · Tiêu đề lớn/vừa/nhỏ · Khối code · Trích dẫn |
 | Cỡ chữ | 12 → 40 px |
-| Kiểu chữ | **B** in đậm |
+| Kiểu chữ | **B** in đậm (`Ctrl+B`) · *I* nghiêng (`Ctrl+I`) · <u>U</u> gạch chân (`Ctrl+U`) · ~~S~~ gạch ngang (`Ctrl+Shift+X`) |
+| Màu chữ | **A** tô bằng màu vừa dùng · mũi tên bên cạnh mở bảng 9 màu + Mặc định |
+| Danh sách | • chấm (`Ctrl+Shift+8`) · 1, 2, 3 số (`Ctrl+Shift+7`) · `Tab` / `Shift+Tab` đổi cấp |
 | Liên kết | 🔗 bôi đen chữ rồi bấm (hoặc `Ctrl+L`), dán địa chỉ vào |
 | Dọn dẹp | ✕ xoá định dạng của phần đang bôi đen, gỡ cả liên kết |
 
@@ -125,7 +126,18 @@ Cách dùng: bôi đen phần chữ → chọn trên thanh công cụ.
 và `Ctrl+V` — chữ đó tự thành liên kết. Bấm vào liên kết là mở tab mới; giữ `Alt` khi bấm nếu
 muốn đặt con trỏ vào để sửa chữ.
 
-**Không có màu.** Chữ luôn dùng màu mặc định của theme để đọc được trên nền tối. **Màu nền bị
+**Danh sách — gõ như Word:**
+
+- Gõ `1. ` (hoặc `1) `) ở đầu dòng → thành danh sách số; gõ `- ` hoặc `* ` → danh sách chấm
+- `Tab` thụt vào một cấp, `Shift+Tab` lùi ra. Cấp lồng nhau đổi kiểu như Word: 1. → a. → i. và • → ○ → ■
+- `Enter` ở dòng trống trong danh sách thì thoát ra chữ thường
+- Lỡ tự thành danh sách mà không muốn: `Ctrl+Z`
+
+**Màu chữ:** bôi đen chữ → bấm **A** để tô ngay bằng màu vừa dùng, hoặc bấm mũi tên bên cạnh để
+chọn màu khác. Chỉ có bảng màu chọn sẵn, màu nào cũng đủ sáng để đọc trên nền tối. Ô gạch chéo
+(**Mặc định**) gỡ màu khỏi phần đang bôi đen. Màu vừa dùng được nhớ trên trình duyệt.
+
+**Không có màu nền.** **Màu nền bị
 loại hẳn** ở khâu lọc — vì chữ có nền thì gõ tiếp ngay sau nó sẽ bị ăn theo nền đó, rất khó chịu.
 Ghi chú cũ lỡ có nền sẽ được dọn sạch ngay khi mở, và ghi đè ở lần lưu kế tiếp.
 
@@ -144,7 +156,8 @@ cũng không bị đụng tới.
 - Lưu sau **10 giây** ngừng gõ — đủ lâu để dán nhầm rồi sửa lại trước khi ghi xuống database
 - Lưu **ngay lập tức** khi bấm ra ngoài ô soạn, chuyển note, chuyển dự án, hoặc đăng xuất
 - `Ctrl/Cmd + S` — lưu ngay · `Ctrl+B` / `Ctrl+I` / `Ctrl+U` — đậm / nghiêng / gạch chân
-- `Tab` — chèn 2 dấu cách, không nhảy focus
+- `Tab` — chèn 2 dấu cách, không nhảy focus (trong danh sách thì thụt cấp)
+- `→` khi con trỏ ở cuối ô code / liên kết thì nhảy ra ngoài để gõ tiếp chữ thường (`←` ở đầu ô cũng vậy)
 - Trạng thái góc phải thanh công cụ: `● Chưa lưu` → `Đang lưu…` → `✓ Đã lưu lúc 09:41`
 - Đóng tab trình duyệt khi còn thay đổi chưa lưu sẽ được cảnh báo
 - Chấm nhỏ trên mỗi tab sáng lên khi note đó đã có nội dung

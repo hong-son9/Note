@@ -144,15 +144,6 @@
 
         <!-- Thanh định dạng -->
         <div class="pad-toolbar" id="fmt-bar">
-          <select class="fmt-select" id="fmt-block" title="Kiểu đoạn">
-            <option value="p">Văn bản</option>
-            <option value="h1">Tiêu đề lớn</option>
-            <option value="h2">Tiêu đề vừa</option>
-            <option value="h3">Tiêu đề nhỏ</option>
-            <option value="pre">Khối code</option>
-            <option value="blockquote">Trích dẫn</option>
-          </select>
-
           <select class="fmt-select" id="fmt-size" title="Cỡ chữ">
             <option value="">Cỡ chữ</option>
             <option value="12">12</option>
@@ -168,6 +159,18 @@
           <span class="fmt-sep"></span>
 
           <button class="fmt-btn" data-cmd="bold" title="Đậm — Ctrl+B"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/></svg></button>
+          <button class="fmt-btn" data-cmd="italic" title="Nghiêng — Ctrl+I"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4h9M5 20h9M14.5 4l-5 16"/></svg></button>
+          <button class="fmt-btn" data-cmd="underline" title="Gạch chân — Ctrl+U"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v7a5 5 0 0 0 10 0V4M5 20h14"/></svg></button>
+          <button class="fmt-btn" data-cmd="strikeThrough" title="Gạch ngang chữ — Ctrl+Shift+X"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M16.5 7.5C16 5.6 14.2 4.5 12 4.5c-2.6 0-4.5 1.4-4.5 3.4 0 1.5 1 2.5 3 3.1"/><path d="M8 16.5c.5 1.9 2.3 3 4.5 3 2.6 0 4.5-1.4 4.5-3.4 0-.8-.3-1.5-.8-2.1"/></svg></button>
+          <span class="color-split">
+            <button class="fmt-btn color-apply" data-act="color" title="Tô màu chữ đang bôi đen bằng màu vừa dùng"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16L12 3l6 13M8.3 11h7.4"/></svg><span class="color-bar" id="color-bar"></span></button>
+            <button class="fmt-btn color-more" data-act="color-menu" title="Chọn màu chữ"><svg width="10" height="10" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></button>
+          </span>
+
+          <span class="fmt-sep"></span>
+
+          <button class="fmt-btn" data-cmd="insertUnorderedList" title="Danh sách chấm — gõ “- ” đầu dòng (Ctrl+Shift+8)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor"/></svg></button>
+          <button class="fmt-btn" data-cmd="insertOrderedList" title="Danh sách số 1, 2, 3 — gõ “1. ” đầu dòng (Ctrl+Shift+7)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 4.5l1.3-.8V9" stroke-width="1.6"/><path d="M3.6 13.2c.3-.6 1-.9 1.6-.7.8.3.9 1.2.3 1.8L3.6 16.5h2.6" stroke-width="1.6"/></svg></button>
 
           <span class="fmt-sep"></span>
 
@@ -188,6 +191,9 @@
       </section>
     </main>
   </div>
+
+  <!-- Bảng chọn màu chữ (đặt ngoài thanh công cụ để không bị cắt khi thanh cuộn ngang trên mobile) -->
+  <div class="color-pop hidden" id="color-pop" role="menu"></div>
 
   <!-- ============ MODAL ============ -->
   <div class="modal-backdrop hidden" id="modal-backdrop">
